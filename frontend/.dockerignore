@@ -1,0 +1,163 @@
+# 依赖缓存
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 构建输出
+dist
+build
+
+# 环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日志文件
+logs
+*.log
+
+# 运行时数据
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# 覆盖率目录
+coverage
+.nyc_output
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Git文件
+.git
+.gitignore
+.gitattributes
+
+# 测试文件
+__tests__
+*.test.js
+*.spec.js
+*.test.ts
+*.spec.ts
+
+# 临时文件
+.tmp
+.temp
+
+# ============================================
+# Docker 相关文件（构建脚本、镜像文件等）
+# ============================================
+
+# Docker 镜像文件
+*.tar
+*.tar.gz
+
+# Docker 构建脚本
+build-multiarch.ps1
+build-multiarch.sh
+quick-build.ps1
+build-arm64-offline.ps1
+build-amd64-offline.ps1
+check-arch.ps1
+fix_encoding.py
+
+# Docker 相关文档
+ARM64_BUILD_GUIDE.md
+ARM64_BUILD_GUIDE_CN.md
+MULTIARCH_README.md
+BUILD_SUCCESS_SUMMARY.md
+
+# ============================================
+# 文档和说明文件
+# ============================================
+
+# Markdown 文档（保留 README.md 主文档）
+*.md
+!README.md
+
+# 组件文档目录
+src/components/common/import/*.md
+
+# ============================================
+# 开发工具配置
+# ============================================
+
+# EditorConfig
+.editorconfig
+
+# Prettier
+.prettierrc
+.prettierrc.json
+.prettierrc.js
+.prettierignore
+
+# ESLint
+.eslintrc
+.eslintrc.js
+.eslintrc.json
+.eslintignore
+
+# Stylelint
+.stylelintrc
+.stylelintrc.json
+.stylelintignore
+
+# ============================================
+# CI/CD 和部署相关
+# ============================================
+
+# GitHub
+.github/
+
+# GitLab CI
+.gitlab-ci.yml
+
+# Jenkins
+Jenkinsfile
+
+# CI 配置
+.travis.yml
+.circleci/
+
+# ============================================
+# 其他不需要的文件
+# ============================================
+
+# 锁文件（保留 package-lock.json 用于构建）
+# yarn.lock
+# pnpm-lock.yaml
+
+# 压缩包和构建产物
+*.zip
+*.rar
+*.7z
+warehouse-frontend-*.tar
+warehouse-frontend-source.zip
+
+# 备份文件
+*.bak
+*.backup
+*~
+
+# 草稿和临时笔记
+TODO.md
+NOTES.md
+DRAFT.md

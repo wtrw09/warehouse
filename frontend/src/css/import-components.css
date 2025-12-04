@@ -1,0 +1,797 @@
+/* ==========================================================================
+   通用导入组件样式库 (Universal Import Components Styles)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   设计变量 (Design Variables)
+   -------------------------------------------------------------------------- */
+:root {
+  /* 导入组件专用颜色 */
+  --import-color-upload: #409eff;
+  --import-color-upload-hover: #337ecc;
+  --import-color-upload-bg: #f0f8ff;
+  --import-color-upload-border: #d9ecff;
+  
+  --import-color-success: #67c23a;
+  --import-color-success-bg: #f0f9ff;
+  --import-color-success-light: #e1f3d8;
+  
+  --import-color-warning: #e6a23c;
+  --import-color-warning-bg: #fdf6ec;
+  --import-color-warning-light: #fcf6e8;
+  
+  --import-color-error: #f56c6c;
+  --import-color-error-bg: #fef0f0;
+  --import-color-error-light: #fef0f0;
+  --import-color-error-border: #f56c6c;
+  
+  --import-color-info: #909399;
+  --import-color-info-bg: #f4f4f5;
+  
+  /* 导入组件间距 */
+  --import-spacing-xs: 4px;
+  --import-spacing-sm: 8px;
+  --import-spacing-md: 12px;
+  --import-spacing-lg: 16px;
+  --import-spacing-xl: 20px;
+  --import-spacing-xxl: 24px;
+  --import-spacing-xxxl: 32px;
+  
+  /* 导入组件字体 */
+  --import-font-size-xs: 12px;
+  --import-font-size-sm: 14px;
+  --import-font-size-md: 16px;
+  --import-font-size-lg: 18px;
+  --import-font-size-xl: 20px;
+  --import-font-size-xxl: 24px;
+  
+  /* 导入组件圆角 */
+  --import-border-radius-sm: 4px;
+  --import-border-radius-md: 6px;
+  --import-border-radius-lg: 8px;
+  
+  /* 导入组件阴影 */
+  --import-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --import-shadow-md: 0 2px 12px rgba(0, 0, 0, 0.1);
+  --import-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   基础容器样式 (Base Container Styles)
+   -------------------------------------------------------------------------- */
+.import-container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--import-spacing-xl);
+  background: #fff;
+  border-radius: var(--import-border-radius-lg);
+  box-shadow: var(--import-shadow-md);
+}
+
+/* --------------------------------------------------------------------------
+   头部组件样式 (Header Components)
+   -------------------------------------------------------------------------- */
+.import-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--import-spacing-xxl);
+  padding-bottom: var(--import-spacing-lg);
+  border-bottom: 1px solid #ebeef5;
+}
+
+.import-header h2 {
+  margin: 0;
+  font-size: var(--import-font-size-xxl);
+  font-weight: 600;
+  color: #303133;
+}
+
+.import-header h3 {
+  margin: 0;
+  font-size: var(--import-font-size-lg);
+  font-weight: 600;
+  color: #303133;
+}
+
+.import-header h4 {
+  margin: 0;
+  font-size: var(--import-font-size-md);
+  font-weight: 600;
+  color: #303133;
+}
+
+.import-info {
+  display: flex;
+  align-items: center;
+  gap: var(--import-spacing-md);
+}
+
+.import-info .preview-info {
+  display: flex;
+  align-items: center;
+  gap: var(--import-spacing-sm);
+  font-size: var(--import-font-size-sm);
+  color: #606266;
+}
+
+/* --------------------------------------------------------------------------
+   状态指示器样式 (Status Indicator Styles)
+   -------------------------------------------------------------------------- */
+.import-status {
+  padding: var(--import-spacing-xs) var(--import-spacing-sm);
+  border-radius: var(--import-border-radius-sm);
+  font-size: var(--import-font-size-xs);
+  font-weight: 500;
+}
+
+.import-status.status-idle {
+  background: var(--import-color-info-bg);
+  color: var(--import-color-info);
+}
+
+.import-status.status-uploading,
+.import-status.status-parsing,
+.import-status.status-validating {
+  background: var(--import-color-success-light);
+  color: var(--import-color-success);
+}
+
+.import-status.status-importing {
+  background: var(--import-color-upload-bg);
+  color: var(--import-color-upload);
+}
+
+.import-status.status-completed {
+  background: var(--import-color-success-bg);
+  color: var(--import-color-upload);
+}
+
+.import-status.status-error {
+  background: var(--import-color-error-bg);
+  color: var(--import-color-error);
+}
+
+/* 进度状态样式 */
+.progress-status {
+  padding: var(--import-spacing-xs) var(--import-spacing-md);
+  border-radius: var(--import-border-radius-sm);
+  font-size: var(--import-font-size-sm);
+  font-weight: 500;
+}
+
+.progress-status.status-uploading,
+.progress-status.status-parsing,
+.progress-status.status-validating,
+.progress-status.status-importing {
+  background: var(--import-color-success-light);
+  color: var(--import-color-success);
+}
+
+.progress-status.status-completed {
+  background: var(--import-color-success-bg);
+  color: var(--import-color-upload);
+}
+
+.progress-status.status-error {
+  background: var(--import-color-error-bg);
+  color: var(--import-color-error);
+}
+
+/* --------------------------------------------------------------------------
+   步骤指示器样式 (Steps Indicator Styles)
+   -------------------------------------------------------------------------- */
+.import-steps {
+  margin-bottom: var(--import-spacing-xxxl);
+}
+
+/* --------------------------------------------------------------------------
+   内容区域样式 (Content Area Styles)
+   -------------------------------------------------------------------------- */
+.import-content {
+  min-height: 300px;
+  margin-bottom: var(--import-spacing-xxl);
+}
+
+/* --------------------------------------------------------------------------
+   上传组件样式 (Upload Component Styles)
+   -------------------------------------------------------------------------- */
+.import-uploader {
+  padding: var(--import-spacing-xl);
+}
+
+.upload-section {
+  margin-bottom: var(--import-spacing-xl);
+}
+
+.upload-content {
+  text-align: center;
+  padding: 40px var(--import-spacing-xl);
+}
+
+.upload-icon {
+  font-size: 48px;
+  color: var(--import-color-upload);
+  margin-bottom: var(--import-spacing-lg);
+}
+
+.upload-text p {
+  margin: var(--import-spacing-sm) 0;
+}
+
+.upload-hint {
+  font-size: var(--import-font-size-xs);
+  color: #909399;
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--import-spacing-md);
+  margin-top: var(--import-spacing-lg);
+}
+
+/* 粘贴数据样式 */
+.paste-section {
+  margin-top: var(--import-spacing-xl);
+}
+
+.paste-input-container {
+  position: relative;
+}
+
+.paste-textarea {
+  font-family: 'Courier New', monospace;
+}
+
+.paste-tips {
+  margin-top: var(--import-spacing-sm);
+  font-size: var(--import-font-size-xs);
+  color: #909399;
+  display: flex;
+  align-items: center;
+  gap: var(--import-spacing-xs);
+}
+
+.paste-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--import-spacing-md);
+  margin-top: var(--import-spacing-lg);
+}
+
+.paste-tag {
+  margin-left: var(--import-spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   数据预览样式 (Data Preview Styles)
+   -------------------------------------------------------------------------- */
+.data-preview {
+  margin-top: var(--import-spacing-xl);
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--import-spacing-lg);
+}
+
+.large-data-tip,
+.paste-data-tip {
+  margin-bottom: var(--import-spacing-lg);
+}
+
+.preview-table {
+  margin-bottom: var(--import-spacing-lg);
+}
+
+/* 预览表格单元格样式 */
+.error-cell {
+  position: relative;
+  background-color: var(--import-color-error-light);
+  border-left: 3px solid var(--import-color-error);
+  padding-left: var(--import-spacing-sm);
+}
+
+.empty-cell {
+  color: #c0c4cc;
+  font-style: italic;
+}
+
+.error-icon {
+  color: var(--import-color-error);
+  margin-left: var(--import-spacing-xs);
+  cursor: pointer;
+}
+
+.warning-icon {
+  color: var(--import-color-warning);
+  margin-left: var(--import-spacing-xs);
+  cursor: pointer;
+}
+
+/* 错误信息样式 */
+.error-messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--import-spacing-xs);
+}
+
+.error-item {
+  line-height: 1.2;
+}
+
+/* 统计信息样式 */
+.preview-stats {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--import-spacing-xxl);
+  padding: var(--import-spacing-md);
+  background: #f5f7fa;
+  border-radius: var(--import-border-radius-sm);
+  font-size: var(--import-font-size-sm);
+}
+
+.stats-item {
+  display: flex;
+  align-items: center;
+}
+
+.stats-label {
+  color: #606266;
+  margin-right: var(--import-spacing-xs);
+}
+
+.stats-value {
+  font-weight: 600;
+  color: #303133;
+}
+
+.stats-item.error .stats-value {
+  color: var(--import-color-error);
+}
+
+.stats-item.success .stats-value {
+  color: var(--import-color-success);
+}
+
+/* --------------------------------------------------------------------------
+   验证结果样式 (Validation Result Styles)
+   -------------------------------------------------------------------------- */
+.validation-result {
+  margin-top: var(--import-spacing-xl);
+}
+
+.validation-errors {
+  border: 1px solid var(--import-color-error);
+  border-radius: var(--import-border-radius-md);
+  padding: var(--import-spacing-lg);
+  background: var(--import-color-error-bg);
+}
+
+.errors-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--import-spacing-lg);
+}
+
+.errors-header h4 {
+  margin: 0;
+  color: var(--import-color-error);
+  display: flex;
+  align-items: center;
+  gap: var(--import-spacing-sm);
+}
+
+.edit-strategy-selector {
+  display: flex;
+  gap: var(--import-spacing-sm);
+}
+
+.strategy-tip {
+  margin-bottom: var(--import-spacing-lg);
+}
+
+.inline-edit-section {
+  margin-top: var(--import-spacing-lg);
+}
+
+.inline-edit-section h5 {
+  margin: 0 0 var(--import-spacing-md) 0;
+  color: #303133;
+}
+
+.editable-cell {
+  position: relative;
+}
+
+.error-field {
+  border-color: var(--import-color-error);
+}
+
+.readonly-field {
+  color: #909399;
+}
+
+.field-error-tip {
+  font-size: var(--import-font-size-xs);
+  color: var(--import-color-error);
+  margin-top: var(--import-spacing-xs);
+  line-height: 1.2;
+}
+
+.inline-edit-actions {
+  margin-top: var(--import-spacing-lg);
+  text-align: center;
+}
+
+.errors-list h5 {
+  margin: 0 0 var(--import-spacing-md) 0;
+  color: #303133;
+}
+
+.error-summary {
+  display: flex;
+  gap: var(--import-spacing-xxl);
+  margin-bottom: var(--import-spacing-md);
+  padding: var(--import-spacing-sm) var(--import-spacing-md);
+  background: #fff;
+  border-radius: var(--import-border-radius-sm);
+  border: 1px solid #ebeef5;
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+}
+
+.summary-label {
+  color: #606266;
+  margin-right: var(--import-spacing-xs);
+}
+
+.summary-value {
+  font-weight: 600;
+  color: #303133;
+}
+
+.summary-value.error {
+  color: var(--import-color-error);
+}
+
+/* 验证通过状态 */
+.validation-passed {
+  text-align: center;
+  padding: 40px var(--import-spacing-xl);
+}
+
+.validation-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--import-spacing-md);
+}
+
+/* --------------------------------------------------------------------------
+   进度组件样式 (Progress Component Styles)
+   -------------------------------------------------------------------------- */
+.import-progress {
+  padding: var(--import-spacing-xl);
+  border: 1px solid #e4e7ed;
+  border-radius: var(--import-border-radius-md);
+  background: #fff;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--import-spacing-xl);
+}
+
+.progress-bar-section {
+  margin-bottom: var(--import-spacing-xxl);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--import-spacing-sm);
+  font-size: var(--import-font-size-sm);
+  color: #606266;
+}
+
+.progress-details {
+  margin-top: var(--import-spacing-lg);
+}
+
+.progress-steps {
+  margin-bottom: var(--import-spacing-xxl);
+}
+
+.progress-metrics {
+  display: flex;
+  justify-content: space-around;
+  gap: var(--import-spacing-lg);
+  margin-bottom: var(--import-spacing-xl);
+  padding: var(--import-spacing-lg);
+  background: #f5f7fa;
+  border-radius: var(--import-border-radius-md);
+}
+
+.metric-item {
+  text-align: center;
+}
+
+.metric-value {
+  font-size: var(--import-font-size-lg);
+  font-weight: 600;
+  color: #303133;
+}
+
+.metric-label {
+  font-size: var(--import-font-size-xs);
+  color: #909399;
+  margin-top: var(--import-spacing-xs);
+}
+
+.progress-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--import-spacing-md);
+}
+
+/* --------------------------------------------------------------------------
+   结果组件样式 (Result Component Styles)
+   -------------------------------------------------------------------------- */
+.import-result {
+  padding: var(--import-spacing-xxl);
+  background: #fff;
+  border-radius: var(--import-border-radius-lg);
+  box-shadow: var(--import-shadow-md);
+}
+
+.result-overview {
+  margin-bottom: var(--import-spacing-xxl);
+}
+
+.overview-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--import-spacing-xl);
+}
+
+.result-icon {
+  font-size: 32px;
+  margin-right: var(--import-spacing-md);
+}
+
+.result-icon.success {
+  color: var(--import-color-success);
+}
+
+.result-icon.error {
+  color: var(--import-color-error);
+}
+
+.result-icon.warning {
+  color: var(--import-color-warning);
+}
+
+.overview-stats {
+  display: flex;
+  gap: var(--import-spacing-lg);
+  margin-bottom: var(--import-spacing-xl);
+}
+
+.stat-card {
+  flex: 1;
+  padding: var(--import-spacing-lg);
+  border-radius: var(--import-border-radius-md);
+  text-align: center;
+  border: 1px solid;
+}
+
+.stat-card.success {
+  background: var(--import-color-success-bg);
+  border-color: var(--import-color-success);
+  color: var(--import-color-success);
+}
+
+.stat-card.total {
+  background: #f5f7fa;
+  border-color: var(--import-color-upload);
+  color: var(--import-color-upload);
+}
+
+.stat-card.error {
+  background: var(--import-color-error-bg);
+  border-color: var(--import-color-error);
+  color: var(--import-color-error);
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 1;
+  margin-bottom: var(--import-spacing-xs);
+}
+
+.stat-label {
+  font-size: var(--import-font-size-sm);
+  opacity: 0.8;
+}
+
+.result-summary {
+  margin-bottom: var(--import-spacing-xl);
+}
+
+.result-details {
+  margin-top: var(--import-spacing-xl);
+}
+
+.result-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--import-spacing-md);
+  margin-top: var(--import-spacing-xl);
+}
+
+/* --------------------------------------------------------------------------
+   底部操作栏样式 (Footer Actions Styles)
+   -------------------------------------------------------------------------- */
+.import-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--import-spacing-lg);
+  border-top: 1px solid #ebeef5;
+}
+
+.footer-info {
+  display: flex;
+  align-items: center;
+  gap: var(--import-spacing-lg);
+  font-size: var(--import-font-size-sm);
+  color: #606266;
+}
+
+.error-count {
+  color: var(--import-color-error);
+  font-weight: 500;
+}
+
+.footer-actions {
+  display: flex;
+  gap: var(--import-spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   表格深度样式 (Deep Table Styles)
+   -------------------------------------------------------------------------- */
+.import-table :deep(.el-table__header-wrapper) {
+  background: #f5f7fa;
+}
+
+.import-table :deep(.el-table__row:hover) {
+  background: #f0f8ff;
+}
+
+.import-table :deep(.el-table__fixed-column--left) {
+  background: #fff;
+}
+
+.import-table :deep(.el-table__fixed-column--right) {
+  background: #fff;
+}
+
+/* --------------------------------------------------------------------------
+   上传组件深度样式 (Deep Upload Styles)
+   -------------------------------------------------------------------------- */
+.import-upload :deep(.el-upload-dragger) {
+  border: 2px dashed #d9d9d9;
+  border-radius: var(--import-border-radius-md);
+  background: #fafafa;
+  transition: all 0.3s;
+}
+
+.import-upload :deep(.el-upload-dragger:hover) {
+  border-color: var(--import-color-upload);
+  background: var(--import-color-upload-bg);
+}
+
+.import-upload :deep(.el-upload-dragger.is-dragover) {
+  border-color: var(--import-color-upload);
+  background: var(--import-color-upload-bg);
+}
+
+/* --------------------------------------------------------------------------
+   步骤器深度样式 (Deep Steps Styles)
+   -------------------------------------------------------------------------- */
+.import-steps :deep(.el-steps--horizontal) {
+  padding: 0 var(--import-spacing-xl);
+}
+
+.import-steps :deep(.el-step__title) {
+  font-size: var(--import-font-size-sm);
+  font-weight: 500;
+}
+
+.import-steps :deep(.el-step__description) {
+  font-size: var(--import-font-size-xs);
+  color: #909399;
+}
+
+/* --------------------------------------------------------------------------
+   响应式设计 (Responsive Design)
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .import-container {
+    padding: var(--import-spacing-lg);
+  }
+  
+  .import-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--import-spacing-md);
+  }
+  
+  .import-footer {
+    flex-direction: column;
+    gap: var(--import-spacing-lg);
+    align-items: stretch;
+  }
+  
+  .footer-actions {
+    justify-content: center;
+  }
+  
+  .validation-actions {
+    flex-direction: column;
+  }
+  
+  .overview-stats {
+    flex-direction: column;
+  }
+  
+  .progress-metrics {
+    flex-direction: column;
+    gap: var(--import-spacing-md);
+  }
+  
+  .upload-content {
+    padding: var(--import-spacing-xl) var(--import-spacing-lg);
+  }
+  
+  .result-actions {
+    flex-direction: column;
+  }
+  
+  .upload-actions,
+  .paste-actions {
+    flex-direction: column;
+  }
+  
+  .preview-stats {
+    flex-direction: column;
+    gap: var(--import-spacing-md);
+  }
+  
+  .error-summary {
+    flex-direction: column;
+    gap: var(--import-spacing-md);
+  }
+  
+  .progress-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--import-spacing-xs);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   动画效果 (Animation Effects) - 已移除
+   -------------------------------------------------------------------------- */

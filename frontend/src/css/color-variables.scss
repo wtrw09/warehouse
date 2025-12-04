@@ -1,0 +1,62 @@
+/* 颜色变量定义文件 - Sass版本 */
+
+// 主色调
+$base-color-primary: #409eff;
+$base-color-primary-light: #66b1ff;
+$base-color-primary-dark: #337ecc;
+
+// 成功色
+$base-color-success: #67c23a;
+$base-color-success-light: #85ce61;
+$base-color-success-dark: #529b2e;
+
+// 警告色
+$base-color-warning: #e6a23c;
+$base-color-warning-light: #ebb563;
+$base-color-warning-dark: #b88230;
+
+// 危险色
+$base-color-danger: #f56c6c;
+$base-color-danger-light: #f78989;
+$base-color-danger-dark: #c45656;
+
+// 信息色
+$base-color-info: #909399;
+$base-color-info-light: #a6a9ad;
+$base-color-info-dark: #73767a;
+
+// 文本色
+$base-color-text-primary: #303133;
+$base-color-text-regular: #606266;
+$base-color-text-secondary: #909399;
+$base-color-text-placeholder: #c0c4cc;
+
+// 边框色
+$base-border-color-base: #dcdfe6;
+$base-border-color-light: #e4e7ed;
+$base-border-color-lighter: #ebeef5;
+$base-border-color-extra-light: #f2f6fc;
+
+// 背景色
+$base-background-color: #f5f7fa;
+
+/* 快速引用混入 */
+@mixin color-primary {
+  color: $base-color-primary;
+}
+
+@mixin color-success {
+  color: $base-color-success;
+}
+
+@mixin color-warning {
+  color: $base-color-warning;
+}
+
+@mixin color-danger {
+  color: $base-color-danger;
+}
+
+@mixin color-info {
+  color: $base-color-info;
+}

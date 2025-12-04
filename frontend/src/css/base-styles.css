@@ -1,0 +1,863 @@
+/* ==========================================================================
+   基础管理组件通用样式 - 优化版本
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   设计系统变量 (Design System Variables)
+   -------------------------------------------------------------------------- */
+:root {
+  /* 颜色系统 */
+  --base-color-primary: #409eff;
+  --base-color-primary-hover: #337ecc;
+  --base-color-primary-light: #66b1ff;
+  --base-color-success: #67c23a;
+  --base-color-warning: #e6a23c;
+  --base-color-danger: #f56c6c;
+  --base-color-info: #909399;
+  
+  --base-color-text-primary: #303133;
+  --base-color-text-regular: #606266;
+  --base-color-text-secondary: #909399;
+  --base-color-text-placeholder: #c0c4cc;
+  
+  --base-color-border: #dcdfe6;
+  --base-color-border-light: #e4e7ed;
+  --base-color-background: #f5f7fa;
+  --base-color-background-light: #f8f9fa;
+  --base-color-background-lighter: #fafbfc;
+  
+  /* 间距系统 */
+  --base-spacing-xs: 4px;
+  --base-spacing-sm: 8px;
+  --base-spacing-md: 16px;
+  --base-spacing-lg: 24px;
+  --base-spacing-xl: 32px;
+  
+  /* 字体系统 */
+  --base-font-size-xs: 12px;
+  --base-font-size-sm: 14px;
+  --base-font-size-md: 16px;
+  --base-font-size-lg: 18px;
+  --base-font-weight-normal: 400;
+  --base-font-weight-medium: 500;
+  --base-font-weight-semibold: 600;
+  
+  /* 圆角系统 */
+  --base-border-radius-sm: 4px;
+  --base-border-radius-md: 8px;
+  --base-border-radius-lg: 12px;
+  
+  /* 阴影系统 */
+  --base-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --base-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --base-shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.1);
+  
+  /* 过渡动画 */
+  --base-transition-fast: 0.2s ease;
+  --base-transition-normal: 0.3s ease;
+  --base-transition-slow: 0.4s ease;
+}
+
+/* --------------------------------------------------------------------------
+   布局容器 (Layout Containers)
+   -------------------------------------------------------------------------- */
+.base-management-container {
+  padding: 0;
+  background-color: var(--base-color-background);
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.base-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-spacing-xs);
+}
+
+/* --------------------------------------------------------------------------
+   卡片组件 (Card Components)
+   -------------------------------------------------------------------------- */
+.base-operation-card,
+.base-table-card {
+  background: white;
+  border-radius: var(--base-border-radius-md);
+  overflow: hidden;
+  transition: all var(--base-transition-normal);
+}
+
+.base-operation-card:hover,
+.base-table-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--base-shadow-lg);
+}
+
+/* --------------------------------------------------------------------------
+   操作栏 (Operation Bar)
+   -------------------------------------------------------------------------- */
+.base-operation-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--base-spacing-sm);
+  flex-wrap: wrap;
+}
+
+.base-operation-bar__left,
+.base-operation-bar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-xs);
+  flex-wrap: wrap;
+}
+
+.base-operation-bar__right {
+  padding-right: var(--base-spacing-md);
+}
+
+/* 搜索按钮间距优化 */
+.base-operation-bar__right .el-input-group {
+  margin-right: var(--base-spacing-sm);
+}
+
+.base-operation-bar__right .el-button {
+  margin-right: var(--base-spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   卡片头部 (Card Header)
+   -------------------------------------------------------------------------- */
+.base-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-xs);
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-primary);
+}
+
+.base-card-header__stats {
+  margin-left: auto;
+  margin-right: var(--base-spacing-md);
+  font-size: var(--base-font-size-sm);
+  color: var(--base-color-text-secondary);
+}
+
+/* 搜索输入框间距优化 */
+.base-operation-bar__right .el-input {
+  margin-right: var(--base-spacing-md);
+}
+
+/* 总计标签间距优化 */
+.base-card-header__stats {
+  margin-right: var(--base-spacing-lg);
+}
+
+.base-card-header__stats span {
+  margin-right: var(--base-spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   状态组件 (State Components)
+   -------------------------------------------------------------------------- */
+.base-loading-container {
+  padding: var(--base-spacing-md);
+}
+
+.base-empty-state {
+  padding: var(--base-spacing-xl) 0;
+  text-align: center;
+  color: var(--base-color-text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   分页组件 (Pagination)
+   -------------------------------------------------------------------------- */
+.base-pagination {
+  margin-top: var(--base-spacing-md);
+  display: flex;
+  justify-content: center;
+}
+
+.base-pagination-container {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   表格组件 (Table Components)
+   -------------------------------------------------------------------------- */
+.base-table th {
+  background-color: #e8eaed;
+  color: #495057;
+  font-weight: var(--base-font-weight-semibold);
+  text-align: center;
+  border-bottom: 1px solid var(--base-color-border);
+}
+
+.base-table th .cell {
+  text-align: center;
+}
+
+.base-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: var(--base-color-background-lighter);
+}
+
+.base-table .el-table__empty-block {
+  padding: var(--base-spacing-xl) 0;
+}
+
+.base-table .cell {
+  text-align: center;
+  white-space: pre-line;
+  line-height: 1.4;
+  word-break: break-word;
+  word-wrap: break-word;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: var(--base-spacing-sm) var(--base-spacing-xs);
+}
+
+.base-table-cell {
+  white-space: normal;
+  word-break: break-all;
+}
+
+/* --------------------------------------------------------------------------
+   按钮组件 (Button Components)
+   -------------------------------------------------------------------------- */
+.base-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.base-button--circle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all var(--base-transition-normal);
+}
+
+.base-button--circle:hover {
+  transform: scale(1.1);
+  box-shadow: var(--base-shadow-sm);
+}
+
+.base-button--circle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   标签组件 (Tag Components)
+   -------------------------------------------------------------------------- */
+.base-tag {
+  border-radius: var(--base-border-radius-sm);
+  font-weight: var(--base-font-weight-medium);
+  background-color: var(--base-color-primary);
+  border-color: var(--base-color-primary);
+  color: white;
+}
+
+.base-tag:hover {
+  background-color: var(--base-color-primary-hover);
+  border-color: var(--base-color-primary-hover);
+}
+
+.base-tag--primary-dark {
+  background-color: var(--base-color-primary);
+  border-color: var(--base-color-primary);
+  color: white;
+  font-weight: var(--base-font-weight-semibold);
+}
+
+.base-tag--primary-dark:hover {
+  background-color: var(--base-color-primary-hover);
+  border-color: var(--base-color-primary-hover);
+}
+
+/* --------------------------------------------------------------------------
+   对话框组件 (Dialog Components)
+   -------------------------------------------------------------------------- */
+.base-dialog-header {
+  background-color: var(--base-color-background-light);
+  padding: var(--base-spacing-lg) var(--base-spacing-xl);
+  border-bottom: 1px solid var(--base-color-border-light);
+}
+
+.base-dialog-body {
+  padding: var(--base-spacing-xl);
+}
+
+.base-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--base-spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   抽屉组件 (Drawer Components)
+   -------------------------------------------------------------------------- */
+.base-drawer {
+  /* 抽屉头部样式 */
+  .el-drawer__header {
+    margin-bottom: 0;
+    padding: var(--base-spacing-lg) var(--base-spacing-xl);
+    border-bottom: 1px solid var(--base-color-border-light);
+    background-color: var(--base-color-background-light);
+    font-weight: var(--base-font-weight-semibold);
+    color: var(--base-color-text-primary);
+  }
+  
+  /* 抽屉内容区域样式 */
+  .base-drawer-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: var(--base-spacing-xl);
+  }
+  
+  /* 抽屉表单样式 */
+  .el-form {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: var(--base-spacing-sm);
+  }
+  
+  /* 抽屉底部按钮区域 */
+  .base-drawer-footer {
+    margin-top: auto;
+    padding-top: var(--base-spacing-lg);
+    border-top: 1px solid var(--base-color-border-light);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--base-spacing-sm);
+  }
+  
+  /* 抽屉滚动条样式 */
+  .el-form::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .el-form::-webkit-scrollbar-track {
+    background: var(--base-color-background);
+    border-radius: 3px;
+  }
+  
+  .el-form::-webkit-scrollbar-thumb {
+    background: var(--base-color-border);
+    border-radius: 3px;
+  }
+  
+  .el-form::-webkit-scrollbar-thumb:hover {
+    background: var(--base-color-text-placeholder);
+  }
+}
+
+/* 抽屉动画效果 */
+.base-drawer .el-drawer__open {
+  animation: drawerSlideIn 0.3s ease;
+}
+
+@keyframes drawerSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* 响应式抽屉样式 */
+@media (max-width: 768px) {
+  .base-drawer {
+    .el-drawer {
+      width: 100% !important;
+    }
+    
+    .base-drawer-content {
+      padding: var(--base-spacing-lg);
+    }
+    
+    .el-form {
+      .el-form-item {
+        margin-bottom: var(--base-spacing-md);
+      }
+      
+      .el-form-item__label {
+        font-size: var(--base-font-size-sm);
+      }
+    }
+  }
+}
+
+/* --------------------------------------------------------------------------
+   表单组件 (Form Components)
+   -------------------------------------------------------------------------- */
+.base-form-label {
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-regular);
+}
+
+/* --------------------------------------------------------------------------
+   操作按钮组 (Action Button Groups)
+   -------------------------------------------------------------------------- */
+.base-action-buttons {
+  display: flex;
+  gap: var(--base-spacing-xs);
+  justify-content: center;
+}
+
+.base-action-buttons .el-button {
+  transition: all var(--base-transition-normal);
+}
+
+.base-action-buttons .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--base-shadow-sm);
+}
+
+.base-action-buttons .el-space {
+  gap: var(--base-spacing-xs);
+}
+
+.base-action-buttons .el-tooltip {
+  display: inline-flex;
+}
+
+/* --------------------------------------------------------------------------
+   工具提示 (Tooltip)
+   -------------------------------------------------------------------------- */
+.base-tooltip-trigger {
+  display: inline-flex;
+}
+
+/* --------------------------------------------------------------------------
+   选择器 (Selectors)
+   -------------------------------------------------------------------------- */
+.base-select .el-tag {
+  margin: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   权限检查 (Permission Check)
+   -------------------------------------------------------------------------- */
+.base-permission-alert {
+  margin-bottom: var(--base-spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   状态指示器 (Status Indicators)
+   -------------------------------------------------------------------------- */
+.base-error-state {
+  margin: var(--base-spacing-md) 0;
+}
+
+.base-success-state {
+  margin: var(--base-spacing-md) 0;
+}
+
+.base-warning-state {
+  margin: var(--base-spacing-md) 0;
+}
+
+.base-info-state {
+  margin: var(--base-spacing-md) 0;
+}
+
+/* --------------------------------------------------------------------------
+   单元格样式 (Cell Styles)
+   -------------------------------------------------------------------------- */
+.base-cell {
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+  line-height: 1.4;
+  padding: 4px 8px;
+  border-radius: var(--base-border-radius-sm);
+  transition: all var(--base-transition-fast);
+}
+
+.base-cell-primary {
+  background-color: #ecf5ff;
+  border: 1px solid #b3d8ff;
+  color: var(--base-color-primary);
+  font-weight: var(--base-font-weight-medium);
+}
+
+.base-cell--blue-bg {
+  background-color: #ecf5ff;
+  border-color: #b3d8ff;
+  color: var(--base-color-primary);
+  font-weight: var(--base-font-weight-medium);
+}
+
+.base-cell--blue-bg:hover {
+  background-color: #d9ecff;
+}
+
+/* --------------------------------------------------------------------------
+   账户管理组件专用样式 (Account Management Components)
+   -------------------------------------------------------------------------- */
+
+/* 账户管理容器样式 */
+.account-management-container {
+  padding: 0;
+  background-color: var(--base-color-background);
+  min-height: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 账户管理弹性内容布局 - 自适应高度 */
+.account-flex-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 账户管理卡片样式 */
+.account-operation-card,
+.account-table-card {
+  background: white;
+  border-radius: var(--base-border-radius-md);
+  overflow: hidden;
+  transition: all var(--base-transition-normal);
+  flex-shrink: 0;
+}
+
+/* 账户管理表格卡片 - 弹性布局支持自适应高度 */
+.account-table-card--flex {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-operation-card:hover,
+.account-table-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+/* 账户管理操作栏样式 */
+.account-operation-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--base-spacing-md);
+  padding: var(--base-spacing-md);
+}
+
+.account-operation-bar .left-actions,
+.account-operation-bar .right-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-operation-bar .search-label {
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-regular);
+  white-space: nowrap;
+}
+
+/* 账户管理卡片头部样式 */
+.account-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--base-spacing-xs);
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-primary);
+}
+
+.account-card-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-xs);
+}
+
+.account-card-header .header-stats {
+  display: flex;
+  gap: var(--base-spacing-xs);
+}
+
+/* 账户管理加载容器 */
+.account-loading-container {
+  padding: var(--base-spacing-lg);
+}
+
+/* 账户管理统计信息样式 */
+.account-statistics {
+  padding: var(--base-spacing-md) var(--base-spacing-lg);
+  border-top: 1px solid var(--base-color-border-light);
+  background-color: var(--base-color-background-lighter);
+}
+
+.account-statistics :deep(.el-statistic) {
+  text-align: center;
+}
+
+.account-statistics :deep(.el-statistic__number) {
+  font-size: 24px;
+  font-weight: var(--base-font-weight-semibold);
+}
+
+.account-statistics :deep(.el-statistic__title) {
+  font-size: var(--base-font-size-sm);
+  color: var(--base-color-text-secondary);
+}
+
+/* 账户管理分页容器 */
+.account-pagination-container {
+  padding: var(--base-spacing-md) var(--base-spacing-lg);
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid var(--base-color-border-light);
+}
+
+/* 账户管理表格样式 */
+.account-table {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 账户管理表格 - 自适应高度 */
+.account-table--auto-height {
+  height: 100%;
+}
+
+.account-table--auto-height :deep(.el-table) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-table--auto-height :deep(.el-table__body-wrapper) {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.account-table :deep(.el-table) {
+  border-radius: 0 0 var(--base-border-radius-md) var(--base-border-radius-md);
+}
+
+.account-table :deep(.el-table__header) {
+  background-color: var(--base-color-background);
+}
+
+.account-table :deep(.el-table th) {
+  background-color: var(--base-color-background);
+  color: var(--base-color-text-regular);
+  font-weight: var(--base-font-weight-semibold);
+  text-align: center;
+}
+
+.account-table :deep(.el-table th .cell) {
+  text-align: center;
+}
+
+.account-table :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: var(--base-color-background-lighter);
+}
+
+.account-table :deep(.el-table .el-table__empty-block) {
+  padding: var(--base-spacing-xl) 0;
+}
+
+/* 账户管理对话框样式 */
+.account-dialog :deep(.el-dialog) {
+  border-radius: 12px;
+}
+
+.account-dialog :deep(.el-dialog__header) {
+  padding: var(--base-spacing-lg) var(--base-spacing-lg) 10px;
+  border-bottom: 1px solid var(--base-color-border-light);
+}
+
+.account-dialog :deep(.el-dialog__body) {
+  padding: var(--base-spacing-lg);
+}
+
+.account-dialog :deep(.el-dialog__footer) {
+  padding: 10px var(--base-spacing-lg) var(--base-spacing-lg);
+  border-top: 1px solid var(--base-color-border-light);
+}
+
+.account-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* 账户管理标签样式 */
+.account-tag :deep(.el-tag) {
+  border-radius: var(--base-border-radius-sm);
+}
+
+.account-tag :deep(.el-tag--dark) {
+  font-weight: var(--base-font-weight-semibold);
+}
+
+.account-tag :deep(.el-tag--light) {
+  border-color: #e1f3d8;
+  background-color: #f0f9ff;
+  color: var(--base-color-success);
+}
+
+/* 账户管理分页组件中文显示 */
+.account-pagination :deep(.el-pagination__total) {
+  margin-right: var(--base-spacing-xs);
+}
+
+.account-pagination :deep(.el-pagination__jump) {
+  margin-left: var(--base-spacing-xs);
+}
+
+.account-pagination :deep(.el-pagination__sizes) {
+  margin-right: var(--base-spacing-xs);
+}
+
+/* 账户管理输入框样式 */
+.account-input-group :deep(.el-input-group__append) {
+  background-color: var(--base-color-primary);
+  color: white;
+  border: none;
+}
+
+.account-input-group :deep(.el-input-group__append .el-button) {
+  color: white;
+  border: none;
+}
+
+.account-input-group :deep(.el-input-group__append .el-button:hover) {
+  background-color: var(--base-color-primary-light);
+}
+
+/* 账户管理下拉菜单样式 */
+.account-dropdown :deep(.el-dropdown-menu) {
+  border-radius: var(--base-border-radius-md);
+}
+
+.account-dropdown :deep(.el-dropdown-menu__item) {
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-xs);
+}
+
+.account-dropdown :deep(.el-dropdown-menu__item.is-active) {
+  background-color: #ecf5ff;
+  color: var(--base-color-primary);
+}
+
+/* 账户管理表格滚动条样式 */
+.account-table :deep(.el-table__body-wrapper)::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.account-table :deep(.el-table__body-wrapper)::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.account-table :deep(.el-table__body-wrapper)::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 3px;
+}
+
+.account-table :deep(.el-table__body-wrapper)::-webkit-scrollbar-thumb:hover {
+  background: #909399;
+}
+
+/* 权限描述样式 */
+.permission-description {
+  font-weight: var(--base-font-weight-medium);
+  color: var(--base-color-text-regular);
+}
+
+/* 权限提示样式 */
+.permission-hint {
+  margin-top: var(--base-spacing-xs);
+}
+
+/* --------------------------------------------------------------------------
+   响应式设计 (Responsive Design)
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .base-management-container {
+    padding: var(--base-spacing-sm);
+  }
+  
+  .base-operation-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .base-operation-bar__left,
+  .base-operation-bar__right {
+    justify-content: center;
+  }
+  
+  .base-operation-bar__right .el-input {
+    width: 100%;
+  }
+  
+  /* 账户管理响应式设计 */
+  .account-operation-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .account-operation-bar .left-actions,
+  .account-operation-bar .right-actions {
+    justify-content: center;
+  }
+  
+  .account-operation-bar .right-actions {
+    flex-wrap: wrap;
+  }
+  
+  .account-operation-bar .right-actions .el-input {
+    width: 100% !important;
+  }
+  
+  .account-card-header {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .account-card-header .header-stats {
+    justify-content: center;
+  }
+  
+  .account-table :deep(.el-table) {
+    font-size: 12px;
+  }
+  
+  .account-pagination :deep(.el-pagination) {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}

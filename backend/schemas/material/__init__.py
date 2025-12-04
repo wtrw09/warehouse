@@ -1,0 +1,103 @@
+# 器材管理相关schemas
+from .inventory_transaction import (
+    ChangeType,
+    ReferenceType,
+    InventoryTransactionCreate,
+    InventoryTransactionUpdate,
+    InventoryTransactionResponse,
+    InventoryTransactionQueryParams,
+    InventoryTransactionPaginationResult,
+    InventoryTransactionListResponse,
+    InventoryTransactionStatistics,
+    InventoryTransactionDetailResponse
+)
+
+from .inbound_order import (
+    InboundOrderItemCreate,
+    InboundOrderCreate,
+    InboundOrderItemResponse,
+    InboundOrderResponse,
+    InboundOrderDetailResponse,
+    InboundOrderUpdate,
+    InboundOrderQueryParams,
+    InboundOrderPaginationResult,
+    InboundOrderListResponse,
+    InboundOrderStatistics,
+    OrderNumberUpdate,
+    TransferNumberUpdate,
+    SupplierUpdate,
+    ContractNumberUpdate,
+    InboundOrderItemUpdate
+)
+
+from .outbound_order import (
+    OutboundOrderItemCreate,
+    OutboundOrderCreate,
+    OutboundOrderItemResponse,
+    OutboundOrderResponse,
+    OutboundOrderDetailResponse,
+    OutboundOrderUpdate,
+    OutboundOrderQueryParams,
+    OutboundOrderPaginationResult,
+    OutboundOrderListResponse,
+    OutboundOrderStatistics,
+    OrderNumberUpdate as OutboundOrderNumberUpdate,
+    TransferNumberUpdate as OutboundTransferNumberUpdate,
+    CustomerUpdate,
+    CreateTimeUpdate,
+    OutboundOrderItemUpdate,
+    OutboundOrderItemBatchDelete,
+    BatchDeleteResponse
+)
+
+from .batch_code import (
+    BatchCodeGenerateRequest,
+    BatchCodeGenerateResponse
+)
+
+__all__ = [
+    "ChangeType",
+    "ReferenceType",
+    "InventoryTransactionCreate",
+    "InventoryTransactionUpdate",
+    "InventoryTransactionResponse",
+    "InventoryTransactionQueryParams",
+    "InventoryTransactionPaginationResult",
+    "InventoryTransactionListResponse",
+    "InventoryTransactionStatistics",
+    "InventoryTransactionDetailResponse",
+    "InboundOrderItemCreate",
+    "InboundOrderCreate",
+    "InboundOrderItemResponse",
+    "InboundOrderResponse",
+    "InboundOrderDetailResponse",
+    "InboundOrderUpdate",
+    "InboundOrderQueryParams",
+    "InboundOrderPaginationResult",
+    "InboundOrderListResponse",
+    "InboundOrderStatistics",
+    "OrderNumberUpdate",
+    "TransferNumberUpdate",
+    "SupplierUpdate",
+    "ContractNumberUpdate",
+    "InboundOrderItemUpdate",
+    "OutboundOrderItemCreate",
+    "OutboundOrderCreate",
+    "OutboundOrderItemResponse",
+    "OutboundOrderResponse",
+    "OutboundOrderDetailResponse",
+    "OutboundOrderUpdate",
+    "OutboundOrderQueryParams",
+    "OutboundOrderPaginationResult",
+    "OutboundOrderListResponse",
+    "OutboundOrderStatistics",
+    "OutboundOrderNumberUpdate",
+    "OutboundTransferNumberUpdate",
+    "CustomerUpdate",
+    "CreateTimeUpdate",
+    "OutboundOrderItemUpdate",
+    "OutboundOrderItemBatchDelete",
+    "BatchDeleteResponse",
+    "BatchCodeGenerateRequest",
+    "BatchCodeGenerateResponse"
+]

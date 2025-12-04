@@ -1,0 +1,945 @@
+/* ==========================================================================
+   通用导入组件补充样式 (Common Import Components Styles)
+   基于 base-styles.css 的补充，专用于 common/import 目录下的组件
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   导入组件专用变量 (Import-specific Variables)
+   -------------------------------------------------------------------------- */
+:root {
+  /* 导入组件专用颜色 */
+  --common-import-color-upload: var(--base-color-primary);
+  --common-import-color-upload-hover: var(--base-color-primary-hover);
+  --common-import-color-upload-bg: #f0f8ff;
+  --common-import-color-upload-border: #d9ecff;
+  
+  --common-import-color-success: var(--base-color-success);
+  --common-import-color-success-bg: #f0f9ff;
+  --common-import-color-success-light: #e1f3d8;
+  
+  --common-import-color-warning: var(--base-color-warning);
+  --common-import-color-warning-bg: #fdf6ec;
+  --common-import-color-warning-light: #fcf6e8;
+  
+  --common-import-color-error: var(--base-color-danger);
+  --common-import-color-error-bg: #fef0f0;
+  --common-import-color-error-light: #fef0f0;
+  --common-import-color-error-border: var(--base-color-danger);
+  
+  --common-import-color-info: var(--base-color-info);
+  --common-import-color-info-bg: #f4f4f5;
+}
+
+/* --------------------------------------------------------------------------
+   通用导入容器样式 (Universal Import Container)
+   -------------------------------------------------------------------------- */
+.universal-import {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--base-spacing-xl);
+  background: white;
+  border-radius: var(--base-border-radius-lg);
+  box-shadow: var(--base-shadow-md);
+}
+
+/* --------------------------------------------------------------------------
+   导入头部样式 (Import Header Styles)
+   -------------------------------------------------------------------------- */
+.import-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--base-spacing-xl);
+  padding-bottom: var(--base-spacing-lg);
+  border-bottom: 1px solid var(--base-color-border-light);
+}
+
+.import-header h2 {
+  margin: 0;
+  font-size: var(--base-font-size-lg);
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-primary);
+}
+
+.import-info {
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-md);
+}
+
+.import-info .preview-info {
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-sm);
+  font-size: var(--base-font-size-sm);
+  color: var(--base-color-text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   导入状态指示器 (Import Status Indicators)
+   -------------------------------------------------------------------------- */
+.import-status {
+  padding: var(--base-spacing-xs) var(--base-spacing-sm);
+  border-radius: var(--base-border-radius-sm);
+  font-size: var(--base-font-size-xs);
+  font-weight: var(--base-font-weight-medium);
+}
+
+.import-status.status-idle {
+  background: var(--common-import-color-info-bg);
+  color: var(--common-import-color-info);
+}
+
+.import-status.status-uploading,
+.import-status.status-parsing,
+.import-status.status-validating {
+  background: var(--common-import-color-success-light);
+  color: var(--common-import-color-success);
+}
+
+.import-status.status-importing {
+  background: var(--common-import-color-upload-bg);
+  color: var(--common-import-color-upload);
+}
+
+.import-status.status-completed {
+  background: var(--common-import-color-success-bg);
+  color: var(--common-import-color-upload);
+}
+
+.import-status.status-error {
+  background: var(--common-import-color-error-bg);
+  color: var(--common-import-color-error);
+}
+
+/* --------------------------------------------------------------------------
+   导入步骤指示器 (Import Steps)
+   -------------------------------------------------------------------------- */
+.import-steps {
+  margin-bottom: var(--base-spacing-xl);
+}
+
+.import-steps :deep(.el-steps--horizontal) {
+  padding: 0 var(--base-spacing-lg);
+}
+
+.import-steps :deep(.el-step__title) {
+  font-size: var(--base-font-size-sm);
+  font-weight: var(--base-font-weight-medium);
+}
+
+.import-steps :deep(.el-step__description) {
+  font-size: var(--base-font-size-xs);
+  color: var(--base-color-text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   导入内容区域 (Import Content)
+   -------------------------------------------------------------------------- */
+.import-content {
+  min-height: 400px;
+  margin-bottom: var(--base-spacing-xl);
+}
+
+.step-content {
+  animation: fadeIn var(--base-transition-normal);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   数据预览样式 (Data Preview Styles)
+   -------------------------------------------------------------------------- */
+.data-preview {
+  margin-top: var(--base-spacing-lg);
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--base-spacing-lg);
+}
+
+.preview-header h3 {
+  margin: 0;
+  font-size: var(--base-font-size-md);
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-primary);
+}
+
+.large-data-tip,
+.paste-data-tip {
+  margin-bottom: var(--base-spacing-lg);
+}
+
+.preview-table {
+  margin-bottom: var(--base-spacing-lg);
+}
+
+/* 预览表格单元格样式 */
+.error-cell {
+  position: relative;
+  background-color: var(--common-import-color-error-light);
+  border-left: 3px solid var(--common-import-color-error);
+  padding-left: var(--base-spacing-sm);
+}
+
+.empty-cell {
+  color: var(--base-color-text-placeholder);
+  font-style: italic;
+}
+
+.error-icon {
+  color: var(--common-import-color-error);
+  margin-left: var(--base-spacing-xs);
+  cursor: pointer;
+}
+
+.warning-icon {
+  color: var(--common-import-color-warning);
+  margin-left: var(--base-spacing-xs);
+  cursor: pointer;
+}
+
+/* 错误信息样式 */
+.error-messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-spacing-xs);
+}
+
+.error-item {
+  line-height: 1.2;
+}
+
+/* 统计信息样式 */
+.preview-stats {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--base-spacing-xl);
+  padding: var(--base-spacing-md);
+  background: var(--base-color-background);
+  border-radius: var(--base-border-radius-sm);
+  font-size: var(--base-font-size-sm);
+}
+
+.stats-item {
+  display: flex;
+  align-items: center;
+}
+
+.stats-label {
+  color: var(--base-color-text-secondary);
+  margin-right: var(--base-spacing-xs);
+}
+
+.stats-value {
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-primary);
+}
+
+.stats-item.error .stats-value {
+  color: var(--common-import-color-error);
+}
+
+.stats-item.success .stats-value {
+  color: var(--common-import-color-success);
+}
+
+/* --------------------------------------------------------------------------
+   上传组件样式 (Upload Component Styles)
+   -------------------------------------------------------------------------- */
+.import-uploader {
+  padding: var(--base-spacing-xl);
+}
+
+.upload-section {
+  margin-bottom: var(--base-spacing-xl);
+}
+
+.upload-content {
+  text-align: center;
+  padding: 40px var(--base-spacing-xl);
+}
+
+.upload-icon {
+  font-size: 48px;
+  color: var(--common-import-color-upload);
+  margin-bottom: var(--base-spacing-lg);
+}
+
+.upload-text p {
+  margin: var(--base-spacing-sm) 0;
+}
+
+.upload-hint {
+  font-size: var(--base-font-size-xs);
+  color: var(--base-color-text-secondary);
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--base-spacing-md);
+  margin-top: var(--base-spacing-lg);
+}
+
+/* 粘贴数据样式 */
+.paste-section {
+  margin-top: var(--base-spacing-xl);
+}
+
+.paste-input-container {
+  position: relative;
+}
+
+.paste-textarea {
+  font-family: 'Courier New', monospace;
+}
+
+.paste-tips {
+  margin-top: var(--base-spacing-sm);
+  font-size: var(--base-font-size-xs);
+  color: var(--base-color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-xs);
+}
+
+.paste-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--base-spacing-md);
+  margin-top: var(--base-spacing-lg);
+}
+
+.paste-tag {
+  margin-left: var(--base-spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   验证结果样式 (Validation Result Styles)
+   -------------------------------------------------------------------------- */
+.validation-result {
+  margin-top: var(--base-spacing-lg);
+}
+
+.validation-errors {
+  border: 1px solid var(--common-import-color-error);
+  border-radius: var(--base-border-radius-md);
+  padding: var(--base-spacing-lg);
+  background: var(--common-import-color-error-bg);
+}
+
+.errors-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--base-spacing-lg);
+}
+
+.errors-header h4 {
+  margin: 0;
+  color: var(--common-import-color-error);
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-sm);
+}
+
+.edit-strategy-selector {
+  display: flex;
+  gap: var(--base-spacing-sm);
+}
+
+.strategy-tip {
+  margin-bottom: var(--base-spacing-lg);
+}
+
+.inline-edit-section {
+  margin-top: var(--base-spacing-lg);
+}
+
+.inline-edit-section h5 {
+  margin: 0 0 var(--base-spacing-md) 0;
+  color: var(--base-color-text-primary);
+}
+
+.editable-cell {
+  position: relative;
+}
+
+.error-field {
+  border-color: var(--common-import-color-error);
+}
+
+.readonly-field {
+  color: var(--base-color-text-secondary);
+}
+
+.field-error-tip {
+  font-size: var(--base-font-size-xs);
+  color: var(--common-import-color-error);
+  margin-top: var(--base-spacing-xs);
+  line-height: 1.2;
+}
+
+.inline-edit-actions {
+  margin-top: var(--base-spacing-lg);
+  text-align: center;
+}
+
+.errors-list h5 {
+  margin: 0 0 var(--base-spacing-md) 0;
+  color: var(--base-color-text-primary);
+}
+
+.error-summary {
+  display: flex;
+  gap: var(--base-spacing-xl);
+  margin-bottom: var(--base-spacing-md);
+  padding: var(--base-spacing-sm) var(--base-spacing-md);
+  background: white;
+  border-radius: var(--base-border-radius-sm);
+  border: 1px solid var(--base-color-border-light);
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+}
+
+.summary-label {
+  color: var(--base-color-text-secondary);
+  margin-right: var(--base-spacing-xs);
+}
+
+.summary-value {
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-primary);
+}
+
+.summary-value.error {
+  color: var(--common-import-color-error);
+}
+
+/* 验证通过状态 */
+.validation-passed {
+  text-align: center;
+  padding: 40px var(--base-spacing-xl);
+}
+
+.validation-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--base-spacing-md);
+}
+
+/* --------------------------------------------------------------------------
+   进度组件样式 (Progress Component Styles)
+   -------------------------------------------------------------------------- */
+.import-progress {
+  padding: var(--base-spacing-xl);
+  border: 1px solid var(--base-color-border);
+  border-radius: var(--base-border-radius-md);
+  background: white;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--base-spacing-xl);
+}
+
+.progress-header h4 {
+  margin: 0;
+  font-size: var(--base-font-size-md);
+  font-weight: var(--base-font-weight-semibold);
+}
+
+.progress-status {
+  padding: var(--base-spacing-xs) var(--base-spacing-md);
+  border-radius: var(--base-border-radius-sm);
+  font-size: var(--base-font-size-sm);
+  font-weight: var(--base-font-weight-medium);
+}
+
+.progress-status.status-uploading,
+.progress-status.status-parsing,
+.progress-status.status-validating,
+.progress-status.status-importing {
+  background: var(--common-import-color-success-light);
+  color: var(--common-import-color-success);
+}
+
+.progress-status.status-completed {
+  background: var(--common-import-color-success-bg);
+  color: var(--common-import-color-upload);
+}
+
+.progress-status.status-error {
+  background: var(--common-import-color-error-bg);
+  color: var(--common-import-color-error);
+}
+
+.progress-bar-section {
+  margin-bottom: var(--base-spacing-xl);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--base-spacing-sm);
+  font-size: var(--base-font-size-sm);
+  color: var(--base-color-text-secondary);
+}
+
+.progress-text {
+  font-weight: var(--base-font-weight-semibold);
+}
+
+.progress-message {
+  font-style: italic;
+}
+
+.steps-section {
+  margin-bottom: var(--base-spacing-lg);
+}
+
+.progress-details {
+  margin-bottom: var(--base-spacing-lg);
+  padding: var(--base-spacing-lg);
+  background: var(--base-color-background);
+  border-radius: var(--base-border-radius-sm);
+}
+
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--base-spacing-md);
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-primary);
+}
+
+.details-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--base-spacing-sm);
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+}
+
+.detail-label {
+  color: var(--base-color-text-secondary);
+  margin-right: var(--base-spacing-sm);
+  min-width: 80px;
+}
+
+.detail-value {
+  color: var(--base-color-text-primary);
+  font-weight: var(--base-font-weight-medium);
+}
+
+.error-section {
+  margin-bottom: var(--base-spacing-lg);
+}
+
+.error-actions {
+  margin-top: var(--base-spacing-md);
+  text-align: center;
+}
+
+.progress-actions {
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   结果组件样式 (Result Component Styles)
+   -------------------------------------------------------------------------- */
+.import-result {
+  padding: var(--base-spacing-xl);
+  background: white;
+  border-radius: var(--base-border-radius-lg);
+  box-shadow: var(--base-shadow-md);
+}
+
+/* 成功和错误区域 - 使用通用样式 */
+.success-section,
+.error-section {
+  margin-bottom: var(--base-spacing-xl);
+  padding: var(--base-spacing-lg);
+  border-radius: var(--base-border-radius-md);
+}
+
+.success-section {
+  background: var(--common-import-color-success-bg);
+  border-left: 4px solid var(--common-import-color-success);
+}
+
+.error-section {
+  background: var(--common-import-color-error-bg);
+  border-left: 4px solid var(--common-import-color-error);
+}
+
+/* 通用详情布局 */
+.success-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--base-spacing-md);
+}
+
+/* 错误文件下载区域 */
+.error-file-section {
+  margin-bottom: var(--base-spacing-lg);
+  padding: var(--base-spacing-md);
+  background: white;
+  border-radius: var(--base-border-radius-sm);
+  border: 1px dashed #d9d9d9;
+  text-align: center;
+}
+
+.error-file-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--base-spacing-sm);
+  margin-bottom: var(--base-spacing-md);
+  font-size: var(--base-font-size-sm);
+  color: var(--base-color-text-secondary);
+}
+
+/* 错误信息区域 */
+.error-info {
+  background: white;
+  border-radius: var(--base-border-radius-md);
+  padding: var(--base-spacing-lg);
+  border: 1px solid var(--base-color-border-light);
+  margin-bottom: var(--base-spacing-lg);
+}
+
+.error-summary-text {
+  font-size: var(--base-font-size-md);
+  color: var(--common-import-color-error);
+  font-weight: var(--base-font-weight-semibold);
+  text-align: center;
+  margin-bottom: var(--base-spacing-md);
+}
+
+.error-actions-center {
+  display: flex;
+  justify-content: center;
+}
+
+/* 错误表格容器 */
+.error-table-container {
+  margin-bottom: var(--base-spacing-lg);
+  border-radius: var(--base-border-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--base-color-border);
+}
+
+/* 错误统计区域 */
+.error-stats {
+  background: white;
+  border-radius: var(--base-border-radius-md);
+  padding: var(--base-spacing-lg);
+  border: 1px solid var(--base-color-border-light);
+}
+
+.error-stats h5 {
+  margin: 0 0 var(--base-spacing-md) 0;
+  color: var(--base-color-text-primary);
+  font-weight: var(--base-font-weight-semibold);
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-sm);
+}
+
+.error-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-spacing-md);
+}
+
+/* 通用详情区域 */
+.error-details {
+  margin-top: var(--base-spacing-lg);
+}
+
+/* 通用分组标题样式 */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-md);
+  margin-bottom: var(--base-spacing-lg);
+  padding: var(--base-spacing-md) 0;
+}
+
+.section-icon {
+  font-size: 20px;
+}
+
+.section-icon.success {
+  color: var(--common-import-color-success);
+}
+
+.section-icon.error {
+  color: var(--common-import-color-error);
+}
+
+.section-header h4 {
+  margin: 0;
+  font-size: var(--base-font-size-md);
+  font-weight: var(--base-font-weight-semibold);
+  color: var(--base-color-text-primary);
+}
+
+/* 通用操作按钮样式 */
+.result-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--base-spacing-md);
+  margin-top: var(--base-spacing-xl);
+  padding-top: var(--base-spacing-xl);
+  border-top: 1px solid var(--base-color-border-light);
+}
+
+/* --------------------------------------------------------------------------
+   底部操作栏样式 (Footer Actions)
+   -------------------------------------------------------------------------- */
+.import-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--base-spacing-lg);
+  border-top: 1px solid var(--base-color-border-light);
+}
+
+.footer-info {
+  display: flex;
+  align-items: center;
+  gap: var(--base-spacing-lg);
+  font-size: var(--base-font-size-sm);
+  color: var(--base-color-text-secondary);
+}
+
+.error-count {
+  color: var(--common-import-color-error);
+  font-weight: var(--base-font-weight-medium);
+}
+
+.error-file-info {
+  color: var(--common-import-color-warning);
+  font-weight: var(--base-font-weight-medium);
+  padding: var(--base-spacing-xs) var(--base-spacing-sm);
+  background: var(--common-import-color-warning-light);
+  border-radius: var(--base-border-radius-sm);
+  border: 1px solid var(--common-import-color-warning);
+}
+
+/* 下载错误数据按钮特殊样式 */
+.error-download-btn {
+  background: var(--common-import-color-error) !important;
+  border-color: var(--common-import-color-error) !important;
+  color: white !important;
+  font-weight: var(--base-font-weight-semibold);
+  animation: error-button-pulse 2s infinite;
+}
+
+.error-download-btn:hover {
+  background: #c45656 !important;
+  border-color: #c45656 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+}
+
+@keyframes error-button-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+.footer-actions {
+  display: flex;
+  gap: var(--base-spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Element Plus 组件深度样式 (Deep Element Plus Styles)
+   -------------------------------------------------------------------------- */
+.import-table :deep(.el-table__header-wrapper) {
+  background: var(--base-color-background);
+}
+
+.import-table :deep(.el-table__row:hover) {
+  background: #f0f8ff;
+}
+
+.import-table :deep(.el-table__fixed-column--left),
+.import-table :deep(.el-table__fixed-column--right) {
+  background: white;
+}
+
+.import-upload :deep(.el-upload-dragger) {
+  border: 2px dashed #d9d9d9;
+  border-radius: var(--base-border-radius-md);
+  background: #fafafa;
+  transition: all var(--base-transition-normal);
+}
+
+.import-upload :deep(.el-upload-dragger:hover) {
+  border-color: var(--common-import-color-upload);
+  background: var(--common-import-color-upload-bg);
+}
+
+.import-upload :deep(.el-upload-dragger.is-dragover) {
+  border-color: var(--common-import-color-upload);
+  background: var(--common-import-color-upload-bg);
+}
+
+:deep(.el-progress-bar__outer) {
+  background-color: var(--base-color-background);
+}
+
+:deep(.el-progress-bar__inner) {
+  transition: width 0.6s ease;
+}
+
+:deep(.el-step__icon) {
+  border: none;
+  background: transparent;
+}
+
+:deep(.el-step__icon.is-text) {
+  color: var(--common-import-color-upload);
+}
+
+:deep(.el-steps--horizontal .el-step__line) {
+  top: 11px;
+}
+
+/* --------------------------------------------------------------------------
+   响应式设计 (Responsive Design)
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .universal-import {
+    padding: var(--base-spacing-lg);
+  }
+  
+  .import-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--base-spacing-md);
+  }
+  
+  .import-footer {
+    flex-direction: column;
+    gap: var(--base-spacing-lg);
+    align-items: stretch;
+  }
+  
+  .footer-actions {
+    justify-content: center;
+  }
+  
+  .validation-actions,
+  .result-actions {
+    flex-direction: column;
+  }
+  
+  .upload-content {
+    padding: var(--base-spacing-xl) var(--base-spacing-lg);
+  }
+  
+  .upload-actions,
+  .paste-actions {
+    flex-direction: column;
+  }
+  
+  .preview-stats {
+    flex-direction: column;
+    gap: var(--base-spacing-md);
+  }
+  
+  .error-summary {
+    flex-direction: column;
+    gap: var(--base-spacing-md);
+  }
+  
+  .progress-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--base-spacing-xs);
+  }
+  
+  .details-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .success-details {
+    grid-template-columns: 1fr;
+  }
+  
+  .error-categories {
+    justify-content: center;
+    gap: var(--base-spacing-sm);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   动画效果 (Animation Effects)
+   -------------------------------------------------------------------------- */
+@keyframes progress-pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.progress-active {
+  animation: progress-pulse 2s infinite;
+}
+
+@keyframes upload-bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+.upload-icon:hover {
+  animation: upload-bounce 1s;
+}

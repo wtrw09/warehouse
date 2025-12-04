@@ -1,0 +1,62 @@
+services:
+  # 仓库管理系统前端
+  frontend:
+    image: warehouse-frontend:latest${ARCH_SUFFIX:-}
+    ports:
+      - "8081:80" 
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    depends_on:
+      warehouse-backend:
+        condition: service_healthy
+    networks:
+      - warehouse-network
+
+  # 仓库管理系统后端
+  warehouse-backend:
+    image: warehouse-backend:latest${ARCH_SUFFIX:-}
+    ports:
+      - "8000:8000"
+    environment:
+      - WORKERS=1  # SQLite数据库，必须使用单进程模式避免锁冲突
+    volumes:
+      - ./warehouseBackend/data:/app/data
+      - ./warehouseBackend/logs:/app/logs
+      - ./warehouseBackend/backups:/app/backups
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - warehouse-network
+
+  # Redis服务
+  redis:
+    image: redis:7.2-alpine${ARCH_SUFFIX:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - warehouse-network
+
+volumes:
+  redis_data:
+
+networks:
+  warehouse-network:
+    driver: bridge
+

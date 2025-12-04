@@ -1,0 +1,72 @@
+# Docker镜像和构建产物
+*.tar
+*.tar.gz
+*.tar.bz2
+
+# Python虚拟环境
+venv313/
+venv/
+.env/
+.venv/
+env/
+ENV/
+
+# Python编译缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Python打包和分发
+*.egg
+*.egg-info/
+dist/
+build/
+
+# 数据库文件
+*.db
+*.db-shm
+*.db-wal
+*.db.backup
+
+# 日志文件
+*.log
+logs/
+
+# 备份文件
+backups/
+temp_recovery/
+
+# 前端构建产物
+dist/
+build/
+
+# Node.js依赖
+node_modules/
+
+# IDE配置文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 环境变量文件
+.env
+.env.local
+.env.production
+
+# 临时文件
+*.tmp
+*.temp
+
+# 测试相关文件
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 包管理文件
+package-lock.json
