@@ -1,10 +1,77 @@
 # 仓库管理系统 (Warehouse Management System)
 
-## 项目概述
+## 1.项目概述
 
 仓库管理系统是一个基于现代Web技术栈构建的完整仓库管理解决方案，采用前后端分离架构，支持多用户权限管理、物料管理、库存跟踪、数据备份恢复等功能。
+适用于人员少的小部门，没有物流跟踪分拣入库等复杂场景需求，但又需要局域网内记录、查看物料库存的情况。
+## 2.运行效果
 
-### 技术栈
+### 登录与首页
+
+**登录界面**  
+![登录界面](./screenshot/登录界面.png)
+
+**默认首页**  
+![默认首页](./screenshot/默认首页.png)
+
+### 基础数据管理
+
+**仓库配置**  
+![仓库配置](./screenshot/仓库配置.png)
+
+**货位配置**  
+![货位配置](./screenshot/货位配置.png)
+
+**专业管理**  
+![专业管理](./screenshot/专业管理.png)
+
+**客户管理**  
+![客户管理](./screenshot/客户管理.png)
+
+**供应商管理**  
+![供应商管理](./screenshot/供应商管理.png)
+
+**器材信息**  
+![器材信息](./screenshot/器材信息.png)
+
+### 库存管理
+
+**入库管理**  
+![入库管理](./screenshot/入库管理.png)
+
+**出库管理**  
+![出库管理](./screenshot/出库管理.png)
+
+**库存明细**  
+![库存明细](./screenshot/库存明细.png)
+
+**库存变更流水**  
+![库存变更流水](./screenshot/库存变更流水.png)
+
+### 账户管理
+**权限管理**  
+![权限管理](./screenshot/权限管理.png)
+
+**角色管理**  
+![角色管理](./screenshot/角色管理.png)
+
+**用户管理**  
+![用户管理](./screenshot/用户管理.png)
+
+### 系统设置
+**数据库管理**  
+![数据库管理](./screenshot/数据库管理.png)
+
+**器材编码设置**  
+![器材编码设置](./screenshot/器材编码设置.png)
+
+**个人设置**  
+![个人设置](./screenshot/个人设置.png)
+
+**系统配置管理**  
+![系统配置管理](./screenshot/系统配置管理.png)
+
+## 3.技术栈
 
 **后端技术栈:**
 - **框架**: FastAPI + SQLModel
@@ -22,7 +89,7 @@
 - **构建工具**: Vite
 - **图表**: ECharts
 
-## 项目结构
+## 4.项目结构
 
 ```
 WarehouseManagement/
@@ -51,91 +118,102 @@ WarehouseManagement/
 └── docker-compose.yml     # Docker编排配置
 ```
 
-## 主要功能模块
+## 5.主要功能模块
 
-### 1. 用户认证与权限管理
+### 5.1 用户认证与权限管理
 - **用户注册/登录**: OAuth2密码模式认证
 - **权限控制**: 基于角色的权限管理系统
 - **会话管理**: JWT令牌认证
 - **用户管理**: 用户信息维护、权限分配
 
-### 2. 基础数据管理
+### 5.2 基础数据管理
 - **仓库管理**: 多仓库配置、仓库信息维护
 - **客户管理**: 客户档案管理
 - **供应商管理**: 供应商信息管理
 - **货位管理**: 仓库货位配置
 
-### 3. 物料管理
+### 5.3 物料管理
 - **器材管理**: 器材基本信息、分类管理
 - **专业管理**: 专业分类体系
 - **装备管理**: 装备类型管理
 - **编码体系**: 器材编码分类层级管理
 
-### 4. 库存管理
+### 5.4 库存管理
 - **入库管理**: 入库单创建、审核、执行
 - **出库管理**: 出库单创建、审核、执行
 - **库存查询**: 实时库存查询、库存明细
 - **库存流水**: 库存变更记录跟踪
 
-### 5. 系统管理
+### 5.5 系统管理
 - **系统配置**: 系统参数配置
 - **数据备份**: 自动/手动数据备份
 - **数据恢复**: 备份数据恢复功能
 - **系统监控**: 系统状态监控、日志管理
 
-### 6. 报表与统计
+### 5.6 报表与统计
 - **仪表板**: 关键指标展示
 - **统计报表**: 各类业务统计
 - **分类账页**: 器材分类账页生成
 - **数据导出**: Excel、PDF格式导出
 
-## 安装与部署
+## 6.安装与部署
 
-### 环境要求
+### 6.1环境要求
 - Python 3.13+
 - Node.js 18+
 - Docker & Docker Compose (推荐)
 
-### 快速启动 (Docker方式)
-
+### 6.2 快速启动 (Docker方式)
+下载我编译好的镜像
 1. **克隆项目**
 ```bash
-git clone <repository-url>
+git clone https://gitee.com/wtrw09/warehouse.git
 cd WarehouseManagement
 ```
-
-2. **启动服务**
+2. **从Registry中拉取镜像**
 ```bash
-# Windows PowerShell
-.\start-containers.ps1
-
-# Linux/Mac
-./start-containers.sh
+$ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/warehouse-frontend:latest-amd64
+$ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/warehouse-backend:latest-amd64
+$ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/redis:7.2-alpine-amd64
 ```
+3. **启动容器**
+复制docker-compose.yml和start-containers.ps1和start-containers.sh文件到项目根目录你要运行的目录下,Windows系统运行start-containers.ps1,Linux/Mac系统运行start-containers.sh。
+注意：Linux中需要给start-containers.sh添加可执行权限。
+```bash
+$ chmod +x start-containers.sh
+```
+然后以管理员权限运行start-containers.sh：
+```bash
+$ sudo ./start-containers.sh
+```
+4. **访问系统**
+`http://localhost:8081/login`或者`http://[你的电脑IP地址]:8081/login`
 
 3. **访问系统**
 - 前端应用: http://localhost:8081
 - 后端API: http://localhost:8000
 - Redis服务: localhost:6379
 
-### 手动部署
-
+### 6.3手动部署
+1. **克隆项目**
+```bash
+git clone https://gitee.com/wtrw09/warehouse.git
+cd WarehouseManagement
+```
 **后端部署:**
 ```bash
 cd backend
 pip install -r requirements.txt
 python main.py
 ```
-
 **前端部署:**
 ```bash
 cd frontend
 npm install
 npm run build
-npm run preview  # 或使用nginx部署dist目录
+npm run dev
 ```
-
-## 系统初始化
+## 7.系统初始化
 
 系统首次启动时会自动执行初始化流程：
 1. 检查数据库连接状态
@@ -144,30 +222,30 @@ npm run preview  # 或使用nginx部署dist目录
 4. 启动定时备份调度器
 5. 配置字体和日志系统
 
-## 数据库架构
+## 8.数据库架构
 
 系统采用双数据库设计：
 - **主业务数据库** (`warehouse.db`): 存储业务数据
 - **系统配置数据库** (`system_config.db`): 存储系统配置和权限数据
 
-## 权限系统
+## 9.权限系统
 
 系统采用基于角色的权限控制(RBAC)模型：
 
-### 权限层级
+### 9.1 权限层级
 1. **系统管理员**: 最高权限，可管理所有功能
 2. **仓库管理员**: 管理指定仓库的业务操作
-3. **操作员**: 执行日常出入库操作
-4. **查看员**: 仅查看数据权限
+3. **业务部门代表**: 能够查看仓库运行数据，但不能够更改，只有监督作用
+4. **查看员**: 仅能够查看库存数据，不能进行任何更改操作，给客户（部门能够申领物资的人）使用
 
-### 权限分类
+### 9.2 权限分类
 - `AUTH-*`: 用户认证相关权限
 - `BASE-*`: 基础数据管理权限
 - `STOCK-*`: 库存管理权限
 - `SYSTEM-*`: 系统管理权限
 - `IO-*`: 出入库操作权限
 
-## 备份与恢复
+## 10.备份与恢复
 
 ### 备份策略
 - **定时备份**: 每日自动备份
@@ -186,9 +264,10 @@ npm run preview  # 或使用nginx部署dist目录
 - **调试日志**: 开发调试信息
 - **恢复日志**: 备份恢复操作记录
 
-# 虚拟机安装部署docker（以almalinux8为例）
-## 1.在虚拟机中安装 almalinux
-## 2.把用户添加到 sudo 中
+## 11.虚拟机安装部署docker（以almalinux8为例）
+如果你的windows系统或电脑硬件不支持虚拟化，无法安装docker，你可以尝试在虚拟机中安装docker。
+### 11.1 在虚拟机中安装 almalinux
+### 11.2 把用户添加到 sudo 中
 ```bash
 # 1. 切换到 root 用户，首先切换到 root 用户
 su -
@@ -198,12 +277,12 @@ vi /etc/sudoers
 root ALL=(ALL) ALL
 userName ALL=(ALL) ALL
 ```
-## 3.打开网络设置
+### 11.3 打开网络设置
 ```bash
 # 启动网络文本界面
 sudo nmtui
 ```
-## 4.安装 OpenSSH 服务器
+### 11.4 安装 OpenSSH 服务器
 ```bash
 # 启动SSH服务 
 sudo systemctl start sshd 
@@ -222,7 +301,7 @@ ip addr show
     - **主机端口**: 2222（或其他未占用端口）
     - **子系统 IP**: 空
     - **子系统端口**: 22
-## 5.从 Windows 主机传输文件
+### 11.5 从 Windows 主机传输文件
 下载 docker-20.10.24.tgz，进行解压，和docker-compose 程序，一起发送到服务器
 ```bash
 # 传输整个文件夹
@@ -233,8 +312,8 @@ scp -P 2222 -r 本地文件夹 username@localhost:/home/username/具体目录
 # 删除localhost:2222的旧密钥记录 
 ssh-keygen -R [localhost]:2222
 ```
-# 6.安装 docker 和 docker-compose
-### 6.1 安装 docker
+### 11.6 安装 docker 和 docker-compose
+### 11.6.1 安装 docker
 1. 从Docker静态包中复制所有必要的二进制文件 
 ```bash
 sudo cp -f docker/* /usr/bin/
@@ -244,7 +323,6 @@ sudo chmod +x /usr/bin/containerd*
 sudo chmod +x /usr/bin/ctr 
 sudo chmod +x /usr/bin/runc
 ```
-
 2. 编写containerd.service
 ```bash
 [Unit]
@@ -333,7 +411,7 @@ sudo systemctl enable docker
 sudo systemctl is-enabled containerd
 sudo systemctl is-enabled docker
 ```
-## 6.2 离线安装 docker-compose
+### 11.6.2 离线安装 docker-compose
 ```bash
 # 将下载的文件复制到离线机器，然后执行：
 # 重命名为docker-compose
@@ -348,17 +426,18 @@ sudo chmod +x /usr/local/bin/docker-compose
 # 创建符号链接（可选）
 sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 ```
-# 安装部署程序
-## 1.编译镜像文件
+## 11.7 安装部署程序
+### 11.7.1编译镜像文件
 1. 使用frontend\build-amd64-offline.ps1 或 frontend\build-arm64-offline.ps1脚本编译前端镜像文件，根据 CPU 构架选择不同脚本，会在生成 frontend\warehouse-frontend-amd64-latest.tar 或 frontend\warehouse-frontend-arm64-latest.tar
 2. 使用 backend\build-amd64-offline.ps1 或 backend\build-arm64-offline.ps1脚本编译后端镜像文件，根据 CPU 构架选择不同脚本，会在生成 backend\warehouse-backend-amd64-latest.tar 或 backend\warehouse-backend-arm64-latest.tar
 3. 自行下载 redis 镜像，命名为 redis:7.2-alpine-amd64 或者 redis:7.2-alpine-arm64，打包为redis-7.2-alpine-amd 64.tar
 4. 根据 cpu 构架，复制到一个文件夹中，把根目录下 docker-compose.yml、start-containers.sh 一起复制进去
-## 2.把文件传输到虚拟机中
+### 11.7.2 把文件传输到虚拟机中
 ```bash
 scp -P 2222 -r * cj@localhost:/home/cj/warehouse
 ```
-## 3.部署
+### 11.7.3 部署
+
 ```
 #在home目录下新建运行目录
 sudo mkdir warehouse
@@ -380,7 +459,7 @@ chmod +x start-containers.sh
 #运行脚本
 ./start-containers.sh 
 ```
-## 4.使用
+### 11.7.4 使用
 ###  VirtualBox 端口转发设置
 在 VirtualBox 中配置端口转发：
 1. 虚拟机设置 → 网络 → 高级 → 端口转发
@@ -392,8 +471,8 @@ chmod +x start-containers.sh
     - **子系统 IP**: 空
     - **子系统端口**: 8081
 访问 localhost:8081 即可访问登录页面，默认管理账号和密码都是admin
-# 本地运行调试
+## 12.本地运行调试
 你需要自己安装redis,设置密码为redis123，端口设置为6379。如果不安装redis,也可运行，可以忽略报错，目前不影响使用。
 
-# 许可证
+## 13.许可证
 本项目采用MIT许可证。
