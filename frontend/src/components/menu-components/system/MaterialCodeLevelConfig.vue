@@ -17,6 +17,48 @@
 
     <!-- 器材编码分类层级管理内容 -->
     <div v-else class="base-content">
+      
+
+      <!-- 器材编码规则说明 -->
+      <el-card class="base-info-card" shadow="hover">
+        <template #header>
+          <div class="base-card-header">
+            <div class="header-left">
+              <el-icon><InfoFilled /></el-icon>
+              <span>器材编码规则说明</span>
+            </div>
+          </div>
+        </template>
+        
+        <div class="code-rule-info">
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="编码格式">10位专业代码+顺序编号</el-descriptions-item>
+            <el-descriptions-item label="编码结构">
+              <div class="code-structure">
+                <div class="code-segment">
+                  <span class="segment-label">1-2位：</span>
+                  <span class="segment-desc">一级专业代码</span>
+                </div>
+                <div class="code-segment-separator"></div>
+                <div class="code-segment">
+                  <span class="segment-label">3-4位：</span>
+                  <span class="segment-desc">二级专业代码</span>
+                </div>
+                <div class="code-segment-separator"></div>
+                <div class="code-segment">
+                  <span class="segment-label">5-10位：</span>
+                  <span class="segment-desc">顺序编号</span>
+                </div>
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="示例">
+              <el-tag type="success" size="large">AB12345678</el-tag>
+              <span style="margin-left: 8px; color: #666;">其中：AB=一级专业代码，12=二级专业代码，345678=顺序编号</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+      </el-card>
+
       <!-- 操作栏 -->
       <el-card class="base-operation-card" shadow="hover">
         <div class="base-operation-bar">
@@ -64,45 +106,7 @@
           </div>
         </div>
       </el-card>
-
-      <!-- 器材编码规则说明 -->
-      <el-card class="base-info-card" shadow="hover">
-        <template #header>
-          <div class="base-card-header">
-            <div class="header-left">
-              <el-icon><InfoFilled /></el-icon>
-              <span>器材编码规则说明</span>
-            </div>
-          </div>
-        </template>
-        
-        <div class="code-rule-info">
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="编码格式">10位专业代码+顺序编号</el-descriptions-item>
-            <el-descriptions-item label="编码结构">
-              <div class="code-structure">
-                <div class="code-segment">
-                  <span class="segment-label">1-2位：</span>
-                  <span class="segment-desc">一级专业代码</span>
-                </div>
-                <div class="code-segment">
-                  <span class="segment-label">3-4位：</span>
-                  <span class="segment-desc">二级专业代码</span>
-                </div>
-                <div class="code-segment">
-                  <span class="segment-label">5-10位：</span>
-                  <span class="segment-desc">顺序编号</span>
-                </div>
-              </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="示例">
-              <el-tag type="success" size="large">AB12345678</el-tag>
-              <span style="margin-left: 8px; color: #666;">其中：AB=一级专业代码，12=二级专业代码，345678=顺序编号</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-      </el-card>
-
+      
       <!-- 器材编码分类层级列表 -->
       <el-card class="base-table-card" shadow="hover">
         <template #header>
@@ -137,7 +141,7 @@
             :data="filteredData" 
             stripe 
             border
-            height="calc(100vh - 10px)"
+            height="calc(100vh - 370px)"
             :empty-text="'暂无器材编码分类层级数据'"
             :default-sort="{ prop: 'level_code', order: 'ascending' }"
             @sort-change="handleSortChange"
@@ -458,14 +462,20 @@ const parseDescription = (description) => {
 
 .code-structure {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
 }
 
 .code-segment {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.code-segment-separator {
+  width: 40px;
+  flex-shrink: 0;
 }
 
 .segment-label {

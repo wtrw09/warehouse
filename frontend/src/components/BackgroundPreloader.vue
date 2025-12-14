@@ -14,14 +14,14 @@ import { ref, onMounted, onUnmounted } from 'vue';
 const showPreloader = ref(true);
 const imagesLoaded = ref(false);
 
-// 预加载图片列表
+// 预加载图片列表 - 使用 Vite 的静态资源导入方式
 const backgroundImages = [
-  '../assets/background/login-background-small.jpg',
-  '../assets/background/login-background-medium.jpg',
-  '../assets/background/login-background-original.jpg',
-  '../assets/background/login-background-small.webp',
-  '../assets/background/login-background-medium.webp',
-  '../assets/background/login-background-original.webp'
+  new URL('../assets/background/login-background-small.jpg', import.meta.url).href,
+  new URL('../assets/background/login-background-medium.jpg', import.meta.url).href,
+  new URL('../assets/background/login-background-original.jpg', import.meta.url).href,
+  new URL('../assets/background/login-background-small.webp', import.meta.url).href,
+  new URL('../assets/background/login-background-medium.webp', import.meta.url).href,
+  new URL('../assets/background/login-background-original.webp', import.meta.url).href
 ];
 
 // 预加载图片
@@ -49,6 +49,7 @@ const preloadImages = () => {
     })
     .catch(error => {
       console.warn('⚠️ 部分图片预加载失败:', error);
+      console.error('失败的图片路径:', backgroundImages);
       // 即使部分图片加载失败，也继续显示页面
       imagesLoaded.value = true;
       showPreloader.value = false;

@@ -54,29 +54,50 @@ Write-Host ""
 
 # 创建必要的目录
 Write-Host "创建数据目录..." -ForegroundColor Cyan
-$dataDir = "warehouseBackend"
-$dirs = @("data", "logs", "backups")
 
-if (-not (Test-Path $dataDir)) {
-    New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
+# 后端数据目录
+$backendDir = "warehouseBackend"
+$backendDirs = @("data", "logs", "backups")
+
+if (-not (Test-Path $backendDir)) {
+    New-Item -ItemType Directory -Path $backendDir -Force | Out-Null
 }
 
-foreach ($dir in $dirs) {
-    $path = Join-Path $dataDir $dir
+foreach ($dir in $backendDirs) {
+    $path = Join-Path $backendDir $dir
     if (-not (Test-Path $path)) {
         New-Item -ItemType Directory -Path $path -Force | Out-Null
-        Write-Host " 创建目录: $path" -ForegroundColor Green
+        Write-Host "✓ 创建目录: $path" -ForegroundColor Green
     }
+}
+
+# 前端配置和日志目录
+$frontendDirs = @("config", "logs/nginx")
+foreach ($dir in $frontendDirs) {
+    if (-not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Write-Host "✓ 创建目录: $dir" -ForegroundColor Green
+    }
+}
+
+# 检查nginx配置文件是否存在，不存在时创建空文件（容器启动时会自动从镜像复制）
+$nginxConfPath = "config/nginx.conf"
+if (-not (Test-Path $nginxConfPath)) {
+    # 创建空文件，容器启动时会自动从镜像复制配置
+    New-Item -ItemType File -Path $nginxConfPath -Force | Out-Null
+    Write-Host "✓ 创建空配置文件: $nginxConfPath （容器启动时将自动从镜像复制）" -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "设置目录权限..." -ForegroundColor Cyan
-# Windows 不需要特殊权限设置，但确保目录可写
+# Windows 不需要特殊权限设置,但确保目录可写
 try {
-    icacls $dataDir /grant Everyone:F /T /Q > $null 2>&1
+    icacls $backendDir /grant Everyone:F /T /Q > $null 2>&1
+    icacls "logs" /grant Everyone:F /T /Q > $null 2>&1
+    icacls "config" /grant Everyone:F /T /Q > $null 2>&1
     Write-Host "✓ 权限设置完成" -ForegroundColor Green
 } catch {
-    Write-Host "⚠ 权限设置失败，可能需要管理员权限" -ForegroundColor Yellow
+    Write-Host "⚠ 权限设置失败,可能需要管理员权限" -ForegroundColor Yellow
 }
 
 Write-Host ""

@@ -266,19 +266,4 @@ onMounted(async () => {
 <style src="../../../css/base-styles.css"></style>
 <style scoped>
 /* 权限管理组件特定样式 */
-
-/* 确保卡片头部不占用额外空间 */
-.account-table-card--flex :deep(.el-card__header) {
-  flex-shrink: 0;
-  padding: 16px 20px;
-}
-
-/* 确保卡片内容区域填充剩余空间 */
-.account-table-card--flex :deep(.el-card__body) {
-  flex: 1;
-  min-height: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
 </style>

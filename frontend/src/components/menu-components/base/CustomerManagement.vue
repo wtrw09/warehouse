@@ -17,7 +17,7 @@
     </el-alert>
 
     <!-- 客户管理内容 -->
-    <div v-else class="base-content">
+    <div v-else class="base-content base-flex-content">
       <!-- 操作栏 -->
       <el-card class="base-operation-card" shadow="hover">
         <div class="base-operation-bar">
@@ -88,7 +88,7 @@
       </el-card>
 
       <!-- 客户列表 -->
-      <el-card class="base-table-card" shadow="hover">
+      <el-card class="base-table-card base-table-card--flex" shadow="hover">
           <template #header>
             <div class="base-card-header">
               <el-icon><List /></el-icon>
@@ -115,13 +115,12 @@
           />
           
           <!-- 客户表格 -->
-          <div v-else>
+          <div v-else class="base-table base-table--auto-height">
             <el-table 
               ref="tableRef"
               :data="customers" 
               stripe 
               border
-              height="400"
               @selection-change="handleSelectionChange"
               @sort-change="handleSortChange"
               :empty-text="'暂无客户数据'"

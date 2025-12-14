@@ -1,5 +1,5 @@
 <template>
-  <div class="base-management-container">
+  <div class="base-management-container base-content base-flex-content">
     <!-- 页头 -->
     <el-card class="base-page-header-card" shadow="hover">
       <el-page-header @back="handleBack" class="base-page-header">
@@ -121,7 +121,7 @@
     </el-card>
 
     <!-- 入库明细表格 -->
-    <el-card class="base-table-card" shadow="hover">
+    <el-card class="base-table-card base-table-card--flex" shadow="hover">
       <template #header>
         <div class="base-card-header" style="height: 20px; line-height: 20px; display: flex; align-items: center; justify-content: space-between;">
           <div style="display: flex; align-items: center; gap: 8px;">
@@ -135,14 +135,14 @@
         </div>
       </template>
 
-      <el-table
-        :data="orderItems"
-        stripe
-        border
-        height="280"
-        :empty-text="'暂无入库明细数据'"
-        class="base-table"
-      >
+      <div class="base-table base-table--auto-height">
+        <el-table
+          :data="orderItems"
+          stripe
+          border
+          :empty-text="'暂无入库明细数据'"
+          class="base-table"
+        >
         <el-table-column 
           type="index" 
           label="序号" 
@@ -293,7 +293,8 @@
             </el-button>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
     </el-card>
 
     <!-- 操作按钮 -->
@@ -2099,7 +2100,7 @@ onMounted(() => {
 }
 
 .material-info-section {
-  flex: 1;
+  flex: 0 0 600px; /* 固定宽度600px */
   background: #f8f9fa;
   border-radius: 8px;
   padding: 20px;
@@ -2129,7 +2130,8 @@ onMounted(() => {
 }
 
 .material-list-section {
-  flex: 0 0 600px;
+  flex: 1; /* 占据剩余空间，空间不够时自动缩小 */
+  min-width: 400px; /* 设置最小宽度，防止缩得太小 */
   display: flex;
   flex-direction: column;
   gap: 20px;

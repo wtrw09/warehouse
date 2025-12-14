@@ -69,11 +69,11 @@
         <div class="card-content">
           <div class="card-label">库存预警</div>
           <div class="card-main">
-            <span class="main-number">{{ statistics.warning_count.total }}</span>
+            <span class="main-number">{{ warnings.summary.total_warning_count }}</span>
             <span class="unit">项需关注</span>
           </div>
-          <div class="card-sub danger">缺货：{{ statistics.warning_count.out_of_stock }} 项</div>
-          <div class="card-sub warning">库存紧张：{{ statistics.warning_count.low_stock }} 项</div>
+          <div class="card-sub danger">缺货：{{ warnings.summary.out_of_stock_count }} 项</div>
+          <div class="card-sub warning">库存紧张：{{ warnings.summary.low_stock_count }} 项</div>
         </div>
       </el-card>
     </div>

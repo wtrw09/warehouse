@@ -17,7 +17,7 @@
     </el-alert>
 
     <!-- 二级专业管理内容 -->
-    <div v-else class="base-content">
+    <div v-else class="base-content base-flex-content">
       <!-- 操作栏 -->
       <el-card class="base-operation-card" shadow="hover">
         <div class="base-operation-bar">
@@ -81,7 +81,7 @@
       </el-card>
 
       <!-- 二级专业列表 -->
-      <el-card class="base-table-card" shadow="hover">
+      <el-card class="base-table-card base-table-card--flex" shadow="hover">
           <template #header>
             <div class="base-card-header">
               <el-icon><List /></el-icon>
@@ -98,14 +98,14 @@
           </div>
 
           <!-- 数据表格 -->
+          <div class="base-table base-table--auto-height">
           <el-table
-            v-else
+            v-if="!loading"
             :data="subMajorList"
             v-loading="loading"
             empty-text="暂无数据"
             stripe
             border
-            height="400"
             @selection-change="handleSelectionChange"
             :default-sort="{ prop: 'id', order: 'ascending' }"
           >
@@ -225,6 +225,7 @@
               </template>
             </el-table-column>
           </el-table>
+          </div>
       </el-card>
 
       <!-- 新增/编辑抽屉 -->

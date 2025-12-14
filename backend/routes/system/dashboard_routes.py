@@ -117,31 +117,9 @@ async def get_dashboard_statistics(
         total_value = float(total_value_result) if total_value_result else 0.0
         
         # ===== 库存预警统计 =====
-        # 缺货预警（库存为0的器材）
-        out_of_stock_count = db.exec(
-            select(func.count(Material.id))
-            .select_from(Material)
-            .outerjoin(
-                InventoryDetail,
-                Material.id == InventoryDetail.material_id
-            )
-            .where(
-                and_(
-                    Material.is_delete == False,
-                    or_(
-                        InventoryDetail.material_id.is_(None),
-                        select(func.sum(InventoryDetail.quantity))
-                        .where(InventoryDetail.material_id == Material.id)
-                        .correlate(Material)
-                        .scalar_subquery() == 0
-                    )
-                )
-            )
-        ).one()
-        
-        # 库存紧张预警（0 < 当前库存 < 安全库存）
-        low_stock_materials = db.exec(
-            select(Material.id)
+        # 查询所有设置了安全库存的器材
+        warning_materials = db.exec(
+            select(Material.id, Material.safety_stock)
             .where(
                 and_(
                     Material.is_delete == False,
@@ -151,19 +129,21 @@ async def get_dashboard_statistics(
             )
         ).all()
         
+        out_of_stock_count = 0
         low_stock_count = 0
-        for material_id in low_stock_materials:
+        
+        for material_id, safety_stock in warning_materials:
+            # 计算当前库存
             current_stock = db.exec(
                 select(func.sum(InventoryDetail.quantity))
                 .where(InventoryDetail.material_id == material_id)
             ).one() or 0
             
-            material = db.exec(
-                select(Material.safety_stock)
-                .where(Material.id == material_id)
-            ).one()
-            
-            if current_stock > 0 and current_stock < material:
+            if current_stock == 0:
+                # 缺货预警：库存为0
+                out_of_stock_count += 1
+            elif 0 < current_stock < safety_stock:
+                # 库存紧张预警：0 < 当前库存 < 安全库存
                 low_stock_count += 1
         
         total_warning_count = out_of_stock_count + low_stock_count

@@ -1,5 +1,9 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* 优化字体栈 - 优先使用系统原生字体，确保中文清晰显示 */
+  font-family: -apple-system, BlinkMacSystemFont, 
+               "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei",
+               "PingFang SC", Roboto, Arial, sans-serif,
+               "Apple Color Emoji", "Segoe UI Emoji";
   line-height: 1.5;
   font-weight: 400;
 
@@ -7,10 +11,12 @@
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
 
+  /* 字体渲染优化 - 提升文字清晰度 */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-smooth: always;
 }
 
 a {
@@ -28,6 +34,18 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  
+  /* 增强字体渲染属性 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-smooth: always;
+  -webkit-text-stroke: 0.45px transparent;
+  
+  /* Windows 7 专项优化：防止文字缩放和渲染问题 */
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 h1 {
@@ -63,6 +81,11 @@ button:focus-visible {
   margin: 0;
   padding: 0;
   text-align: left;
+  
+  /* 应用层级字体渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 @media (prefers-color-scheme: light) {

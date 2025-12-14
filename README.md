@@ -176,6 +176,16 @@ $ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/
 $ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/warehouse-backend:latest-amd64
 $ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/redis:7.2-alpine-amd64
 ```
+**加载镜像**
+```bash
+# 在镜像文件所在目录下运行
+sudo docker load -i warehouse-backend-arm 64-latest.tar
+sudo docker load -i warehouse-frontend-arm 64-latest.tar
+sudo docker load -i redis-7.2-alpine-arm 64.tar
+# 验证,可以看到载入的镜像
+sudo docker images
+```
+
 3. **启动容器**
 复制docker-compose.yml和start-containers.ps1和start-containers.sh文件到项目根目录你要运行的目录下,Windows系统运行start-containers.ps1,Linux/Mac系统运行start-containers.sh。
 注意：Linux中需要给start-containers.sh添加可执行权限。

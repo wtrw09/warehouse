@@ -6,7 +6,7 @@
    设计系统变量 (Design System Variables)
    -------------------------------------------------------------------------- */
 :root {
-  /* 颜色系统 */
+  /* 颜色系统 - 优化文字对比度，提升低DPI屏幕显示清晰度 */
   --base-color-primary: #409eff;
   --base-color-primary-hover: #337ecc;
   --base-color-primary-light: #66b1ff;
@@ -15,9 +15,10 @@
   --base-color-danger: #f56c6c;
   --base-color-info: #909399;
   
-  --base-color-text-primary: #303133;
-  --base-color-text-regular: #606266;
-  --base-color-text-secondary: #909399;
+  /* 文字颜色 - 提升对比度，减少模糊 */
+  --base-color-text-primary: #1d1d1f;
+  --base-color-text-regular: #515154;
+  --base-color-text-secondary: #86868b;
   --base-color-text-placeholder: #c0c4cc;
   
   --base-color-border: #dcdfe6;
@@ -33,12 +34,12 @@
   --base-spacing-lg: 24px;
   --base-spacing-xl: 32px;
   
-  /* 字体系统 */
+  /* 字体系统 - 优化字重提升清晰度 */
   --base-font-size-xs: 12px;
   --base-font-size-sm: 14px;
   --base-font-size-md: 16px;
   --base-font-size-lg: 18px;
-  --base-font-weight-normal: 400;
+  --base-font-weight-normal: 450;      /* 原 400，轻微增粗 */
   --base-font-weight-medium: 500;
   --base-font-weight-semibold: 600;
   
@@ -68,9 +69,24 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  
+  /* 容器级别字体渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .base-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-spacing-xs);
+}
+
+/* 基础管理弹性内容布局 - 自适应高度 */
+.base-flex-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: var(--base-spacing-xs);
@@ -85,6 +101,32 @@
   border-radius: var(--base-border-radius-md);
   overflow: hidden;
   transition: all var(--base-transition-normal);
+  flex-shrink: 0;
+}
+
+/* 基础管理表格卡片 - 弹性布局支持自适应高度 */
+.base-table-card--flex {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 基础管理表格卡片头部 */
+.base-table-card--flex :deep(.el-card__header) {
+  flex-shrink: 0;
+  padding: 16px 20px;
+}
+
+/* 基础管理表格卡片内容区域 */
+.base-table-card--flex :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .base-operation-card:hover,
@@ -141,6 +183,9 @@
   margin-right: var(--base-spacing-md);
   font-size: var(--base-font-size-sm);
   color: var(--base-color-text-secondary);
+  
+  /* 方案三：统计信息字重优化 */
+  font-weight: 500;
 }
 
 /* 搜索输入框间距优化 */
@@ -168,6 +213,9 @@
   padding: var(--base-spacing-xl) 0;
   text-align: center;
   color: var(--base-color-text-secondary);
+  
+  /* 方案三：空状态文字重优化 */
+  font-weight: 500;
 }
 
 /* --------------------------------------------------------------------------
@@ -181,6 +229,7 @@
 
 .base-pagination-container {
   margin-top: 10px;
+  padding-bottom: var(--base-spacing-md);
   display: flex;
   justify-content: center;
 }
@@ -188,12 +237,47 @@
 /* --------------------------------------------------------------------------
    表格组件 (Table Components)
    -------------------------------------------------------------------------- */
+.base-table {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 基础管理表格 - 自适应高度 */
+.base-table--auto-height {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.base-table--auto-height :deep(.el-table) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.base-table--auto-height :deep(.el-table__header-wrapper) {
+  flex-shrink: 0;
+}
+
+.base-table--auto-height :deep(.el-table__body-wrapper) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .base-table th {
   background-color: #e8eaed;
   color: #495057;
   font-weight: var(--base-font-weight-semibold);
   text-align: center;
   border-bottom: 1px solid var(--base-color-border);
+  
+  /* 表头文字渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .base-table th .cell {
@@ -219,6 +303,11 @@
   justify-content: center;
   min-height: 40px;
   padding: var(--base-spacing-sm) var(--base-spacing-xs);
+  
+  /* 表格单元格文字渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .base-table-cell {
@@ -408,6 +497,18 @@
   color: var(--base-color-text-regular);
 }
 
+/* 方案三：针对灰色文字的字重优化 */
+.base-color-text-regular,
+[style*="color: var(--base-color-text-regular)"],
+.el-text.is-secondary {
+  font-weight: 500;  /* 从默认 400 增加到 500 */
+}
+
+.base-color-text-secondary,
+[style*="color: var(--base-color-text-secondary)"] {
+  font-weight: 500;  /* 灰色文字增加字重 */
+}
+
 /* --------------------------------------------------------------------------
    操作按钮组 (Action Button Groups)
    -------------------------------------------------------------------------- */
@@ -517,6 +618,11 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  
+  /* 账户管理容器文字渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .account-content {
@@ -530,6 +636,9 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* 账户管理卡片样式 */
@@ -548,6 +657,23 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* 账户管理表格卡片头部 */
+.account-table-card--flex :deep(.el-card__header) {
+  flex-shrink: 0;
+  padding: 16px 20px;
+}
+
+/* 账户管理表格卡片内容区域 */
+.account-table-card--flex :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .account-operation-card:hover,
@@ -576,6 +702,9 @@
   font-weight: var(--base-font-weight-semibold);
   color: var(--base-color-text-regular);
   white-space: nowrap;
+  
+  /* 方案三：搜索标签字重优化 */
+  font-weight: 550;  /* 稍微增加 */
 }
 
 /* 账户管理卡片头部样式 */
@@ -623,6 +752,9 @@
 .account-statistics :deep(.el-statistic__title) {
   font-size: var(--base-font-size-sm);
   color: var(--base-color-text-secondary);
+  
+  /* 方案三：统计标题字重优化 */
+  font-weight: 500;
 }
 
 /* 账户管理分页容器 */
@@ -639,11 +771,14 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* 账户管理表格 - 自适应高度 */
 .account-table--auto-height {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .account-table--auto-height :deep(.el-table) {
@@ -652,8 +787,13 @@
   flex-direction: column;
 }
 
+.account-table--auto-height :deep(.el-table__header-wrapper) {
+  flex-shrink: 0;
+}
+
 .account-table--auto-height :deep(.el-table__body-wrapper) {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -793,6 +933,9 @@
 .permission-description {
   font-weight: var(--base-font-weight-medium);
   color: var(--base-color-text-regular);
+  
+  /* 方案三：权限描述字重优化 */
+  font-weight: 525;  /* 稍微增加 */
 }
 
 /* 权限提示样式 */
@@ -803,6 +946,28 @@
 /* --------------------------------------------------------------------------
    响应式设计 (Responsive Design)
    -------------------------------------------------------------------------- */
+
+/* 针对低DPI屏幕的字体清晰度优化 - 适用于 1920x1080 @ 100% 等环境 */
+@media screen and (-webkit-max-device-pixel-ratio: 1.5), 
+       screen and (max-resolution: 1.5dppx) {
+  body {
+    /* 方案三：增加字重，提升清晰度 */
+    font-weight: 475;
+    /* 轻微描边增强，减少模糊 */
+    -webkit-text-stroke: 0.45px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* 进一步加深文字颜色，提高对比度 */
+  :root {
+    --base-color-text-regular: #404043;
+    --base-color-text-secondary: #6e6e73;
+    
+    /* 方案三：低DPI屏幕进一步优化字重 */
+    --base-font-weight-normal: 475;
+    --base-font-weight-medium: 525;
+  }
+}
+
 @media (max-width: 768px) {
   .base-management-container {
     padding: var(--base-spacing-sm);
@@ -859,5 +1024,84 @@
   .account-pagination :deep(.el-pagination) {
     flex-wrap: wrap;
     justify-content: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Windows 7 / 旧版 Edge 专项优化 (Windows 7 Specific Optimizations)
+   -------------------------------------------------------------------------- */
+/* 针对 IE10+, 旧版 Edge (主要是 Windows 7 平台) */
+@supports (-ms-ime-align: auto) {
+  /* Windows 7 ClearType 增强优化 */
+  body {
+    /* 增加字重，让笔画更清晰 */
+    font-weight: 500;
+    /* 增强描边效果 */
+    -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* 文字颜色激进加深 */
+  :root {
+    --base-color-text-regular: #353538;
+    --base-color-text-secondary: #5e5e63;
+    --base-font-weight-normal: 500;
+    --base-font-weight-medium: 550;
+  }
+  
+  /* 灰色文字进一步增强 */
+  .base-color-text-regular,
+  .base-color-text-secondary,
+  .base-card-header__stats,
+  .base-empty-state,
+  .account-statistics .el-statistic__title {
+    font-weight: 550;
+  }
+}
+
+/* 旧版 IE/Edge 媒体查询（备用方案） */
+@media screen and (-ms-high-contrast: none), 
+       screen and (-ms-high-contrast: active) {
+  body {
+    font-weight: 500;
+    -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.1);
+  }
+  
+  :root {
+    --base-color-text-regular: #353538;
+    --base-color-text-secondary: #5e5e63;
+    --base-font-weight-normal: 500;
+  }
+  
+  /* 表格单元格文字加强 */
+  .base-table .cell,
+  .account-table .cell {
+    font-weight: 500;
+    -webkit-text-stroke: 0.3px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* 表头文字加强 */
+  .base-table th,
+  .account-table th {
+    font-weight: 600;
+  }
+  
+  /* 按钮文字加强 */
+  .el-button {
+    font-weight: 500;
+  }
+}
+
+/* Windows 平台通用优化（保底方案） */
+@media screen and (min-resolution: 0.001dpcm) {
+  @supports (-webkit-appearance: none) and (stroke-color: transparent) {
+    /* 适用于 Windows 上的 Chrome/Edge */
+    body {
+      text-rendering: geometricPrecision;  /* 几何精度优先 */
+    }
+    
+    .base-color-text-regular,
+    .base-color-text-secondary {
+      -webkit-font-smoothing: subpixel-antialiased;  /* 次像素抗锯齿 */
+    }
   }
 }

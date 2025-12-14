@@ -39,11 +39,25 @@ LABEL org.opencontainers.image.title="MWSTest Frontend"
 LABEL org.opencontainers.image.description="Multi-architecture compatible frontend application"
 LABEL org.opencontainers.image.licenses="MIT"
 
+# 安装logrotate工具用于日志轮转
+RUN apk add --no-cache logrotate \
+    && mkdir -p /etc/logrotate.d \
+    && mkdir -p /var/lib/logrotate
+
+# 复制默认nginx配置文件到容器内（两个副本：默认配置和模板）
+COPY config/nginx.conf /etc/nginx/nginx.conf.default
+COPY config/nginx.conf /etc/nginx/nginx.conf.template
+
 # 复制构建好的文件到nginx目录
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# 复制nginx配置文件
-COPY nginx.conf /etc/nginx/nginx.conf
+# 创建nginx配置目录并移除默认配置
+RUN mkdir -p /etc/nginx/conf.d && \
+    rm -f /etc/nginx/conf.d/default.conf
+
+# 创建启动脚本，支持外部配置覆盖
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # 创建必要的目录并设置权限
 RUN mkdir -p /var/cache/nginx && \
@@ -55,6 +69,9 @@ EXPOSE 80
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+
+# 设置启动脚本
+ENTRYPOINT ["/docker-entrypoint.sh"]
 
 # 启动nginx
 CMD ["nginx", "-g", "daemon off;"]

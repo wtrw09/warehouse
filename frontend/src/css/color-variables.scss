@@ -25,10 +25,10 @@ $base-color-info: #909399;
 $base-color-info-light: #a6a9ad;
 $base-color-info-dark: #73767a;
 
-// 文本色
-$base-color-text-primary: #303133;
-$base-color-text-regular: #606266;
-$base-color-text-secondary: #909399;
+// 文字颜色 - 优化对比度，提升低DPI屏幕显示清晰度
+$base-color-text-primary: #1d1d1f;
+$base-color-text-regular: #515154;
+$base-color-text-secondary: #86868b;
 $base-color-text-placeholder: #c0c4cc;
 
 // 边框色

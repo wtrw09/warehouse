@@ -1,5 +1,5 @@
 <template>
-  <div class="base-management-container">
+  <div class="base-management-container base-content base-flex-content">
     <!-- 页头 -->
     <el-card class="base-page-header-card" shadow="hover">
       <el-page-header @back="handleBack" class="base-page-header">
@@ -102,7 +102,7 @@
     </el-card>
 
     <!-- 出库明细表格 -->
-    <el-card class="base-table-card" shadow="hover">
+    <el-card class="base-table-card base-table-card--flex" shadow="hover">
       <template #header>
         <div class="base-card-header" style="height: 20px; line-height: 20px; display: flex; align-items: center; gap: 0;">
           <el-icon><List /></el-icon>
@@ -120,14 +120,14 @@
         </div>
       </template>
 
-      <el-table
-        :data="orderItems"
-        stripe
-        border
-        height="280"
-        :empty-text="'暂无出库明细数据'"
-        class="base-table"
-      >
+      <div class="base-table base-table--auto-height">
+        <el-table
+          :data="orderItems"
+          stripe
+          border
+          :empty-text="'暂无出库明细数据'"
+          class="base-table"
+        >
         <el-table-column 
           type="index" 
           label="序号" 
@@ -235,7 +235,8 @@
             </el-button>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
     </el-card>
 
     <!-- 操作按钮 -->
@@ -1050,10 +1051,9 @@ const addMaterialItem = async (material: InventoryDetailResponse & { addQuantity
       return;
     }
     
-    // 使用库存管理变量验证数量是否充足
-    if (!checkStockSufficient(material.batch_id!, material.addQuantity)) {
-      const availableQuantity = getAvailableStockQuantity(material.batch_id!);
-      ElMessage.warning(`输入数量超过可用库存数量（可用库存：${availableQuantity}）`);
+    // 检查输入数量是否超过实际库存
+    if (material.addQuantity > material.quantity) {
+      ElMessage.error(`输入数量 ${material.addQuantity} 超过实际库存 ${material.quantity}，请重新输入`);
       return;
     }
     
@@ -1066,6 +1066,16 @@ const addMaterialItem = async (material: InventoryDetailResponse & { addQuantity
       // 如果已存在，则合并数量（删除新项，把数量加到现有项上）
       const existingItem = orderItems.value[existingItemIndex];
       const newQuantity = existingItem.quantity + material.addQuantity;
+      
+      // 检查合并后的数量是否超过库存
+      // 计算可用库存：实际库存 + 已出库数量（如果是编辑模式）
+      const stockInfo = stockManagement.value.get(material.batch_id!);
+      const maxAllowedQuantity = stockInfo ? stockInfo.original_quantity : material.quantity;
+      
+      if (newQuantity > maxAllowedQuantity) {
+        ElMessage.error(`合并后数量 ${newQuantity} 超过可用库存 ${maxAllowedQuantity}，无法添加`);
+        return;
+      }
       
       // 显示合并提示
       ElMessage.success(`已存在相同批次号器材，数量已合并：${existingItem.quantity} + ${material.addQuantity} = ${newQuantity}`);

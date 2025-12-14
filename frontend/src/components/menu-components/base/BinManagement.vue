@@ -17,7 +17,7 @@
     </el-alert>
 
     <!-- 操作栏 -->
-    <div v-else>
+    <div v-else class="base-content base-flex-content">
     <el-card class="base-operation-card" shadow="hover">
       <div class="base-operation-bar">
         <div class="base-operation-bar__left">
@@ -93,7 +93,7 @@
     </el-card>
 
     <!-- 货位列表 -->
-    <el-card class="base-table-card" shadow="hover">
+    <el-card class="base-table-card base-table-card--flex" shadow="hover">
       <template #header>
         <div class="base-card-header">
           <el-icon><List /></el-icon>
@@ -110,13 +110,12 @@
       </div>
 
       <!-- 货位表格 -->
-      <div v-else>
+      <div v-else class="base-table base-table--auto-height">
         <el-table
           ref="tableRef"
           :data="tableData"
           stripe
           border
-          height="400"
           :empty-text="'暂无货位数据'"
           class="base-table"
           @selection-change="handleSelectionChange"

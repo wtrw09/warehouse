@@ -1,5 +1,5 @@
 <template>
-  <div class="base-management-container">
+  <div class="base-management-container base-content base-flex-content">
     <!-- 操作栏 -->
     <el-card class="base-operation-card" shadow="hover">
       <div class="base-operation-bar">
@@ -54,7 +54,7 @@
     </el-card>
 
     <!-- 库存流水列表 -->
-    <el-card class="base-table-card" shadow="hover">
+    <el-card class="base-table-card base-table-card--flex" shadow="hover">
       <template #header>
         <div class="base-card-header">
           <el-icon><List /></el-icon>
@@ -71,13 +71,12 @@
       </div>
 
       <!-- 库存流水表格 -->
-      <div v-else>
+      <div v-else class="base-table base-table--auto-height">
         <el-table
           ref="tableRef"
           :data="tableData"
           stripe
           border
-          height="400"
           :empty-text="'暂无库存流水数据'"
           class="base-table"
           @sort-change="handleSortChange"
