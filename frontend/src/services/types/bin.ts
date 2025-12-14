@@ -15,20 +15,20 @@ export interface Bin {
 
 export interface BinCreateRequest {
   bin_name: string;
-  bin_size?: string;
-  bin_property?: string;
+  bin_size?: string | null;
+  bin_property?: string | null;
   warehouse_id: number;
   empty_label: boolean;
-  bar_code?: string;
+  bar_code?: string | null;
 }
 
 export interface BinUpdateRequest {
   bin_name?: string;
-  bin_size?: string;
-  bin_property?: string;
+  bin_size?: string | null;
+  bin_property?: string | null;
   warehouse_id?: number;
   empty_label?: boolean;
-  bar_code?: string;
+  bar_code?: string | null;
 }
 
 export interface BinListResponse {

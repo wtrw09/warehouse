@@ -1,10 +1,11 @@
 import { ref, markRaw } from 'vue';
 import {
-  HomeFilled, Shop, UserFilled, ShoppingBag,
+  Shop, UserFilled, ShoppingBag,
   Briefcase, Monitor, Setting, Document,
-  Plus, Minus, List, Key, User, Avatar,
-  Coin, Coordinate, ScaleToOriginal, Notebook, House
+  Plus, Minus, List, Key, Avatar,
+  Coin, Coordinate, ScaleToOriginal, Notebook
 } from '@element-plus/icons-vue';
+import SvgIcon from '../components/SvgIcon.vue';
 
 // 定义菜单项接口
 export interface MenuItem {
@@ -20,14 +21,14 @@ export const menuData = ref<MenuItem[]>([
   {
     index: 'home',
     title: '主页',
-    icon: markRaw(House),
+    icon: markRaw(SvgIcon),
     permission: 'AUTH-own', // 所有登录用户都可以访问
     children: []
   },
   {
     index: '1',
     title: '基础数据',
-    icon: markRaw(HomeFilled),
+    icon: markRaw(SvgIcon),
     permission: 'BASE-read',
     children: [
       { index: '1-1', title: '仓库配置', icon: markRaw(Shop), permission: 'BASE-read' },
@@ -42,7 +43,7 @@ export const menuData = ref<MenuItem[]>([
   {
       index: '2',
       title: '出入库管理',
-      icon: markRaw(ScaleToOriginal),
+      icon: markRaw(SvgIcon),
       permission: 'STOCK-read',
       children: [
         { index: '2-1', title: '入库管理', icon: markRaw(Plus), permission: 'IO-edit' }, // 修正：入库需要编辑权限
@@ -54,7 +55,7 @@ export const menuData = ref<MenuItem[]>([
   {
     index: '3',
     title: '账户管理',
-    icon: markRaw(User),
+    icon: markRaw(SvgIcon),
     permission: 'AUTH-read',
     children: [
       { index: '3-1', title: '权限管理', icon: markRaw(Key), permission: 'AUTH-read' },
@@ -65,7 +66,7 @@ export const menuData = ref<MenuItem[]>([
   {
     index: '4',
     title: '系统设置',
-    icon: markRaw(Setting),
+    icon: markRaw(SvgIcon),
     permission: 'AUTH-own',
     children: [
       { index: '4-1', title: '数据库管理', icon: markRaw(Coin), permission: 'AUTH-edit' },

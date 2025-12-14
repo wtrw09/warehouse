@@ -376,7 +376,13 @@ async def get_inventory_warnings(
         # ===== 缺货预警查询 =====
         out_of_stock_materials = db.exec(
             select(Material)
-            .where(Material.is_delete == False)
+            .where(
+                and_(
+                    Material.is_delete == False,
+                    Material.safety_stock.isnot(None),
+                    Material.safety_stock > 0
+                )
+            )
         ).all()
         
         out_of_stock = []

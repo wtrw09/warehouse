@@ -14,16 +14,22 @@ logger = logging.getLogger(__name__)
 class FontManager:
     """字体管理器类"""
     
-    def __init__(self, font_dir: str = "fonts"):
+    def __init__(self, font_dir: str = None):
         """
         初始化字体管理器
         
         Args:
-            font_dir: 字体文件目录路径
+            font_dir: 字体文件目录路径，如果为None则使用默认路径
         """
-        self.font_dir = Path(font_dir)
+        # 设置默认字体目录路径
+        if font_dir is None:
+            # 使用相对于当前模块的绝对路径
+            current_dir = Path(__file__).parent.parent  # utils目录的父目录是backend
+            self.font_dir = current_dir / "fonts"
+        else:
+            self.font_dir = Path(font_dir)
+            
         self.project_fonts: Dict[str, str] = {}  # 字体名: 文件路径
-        self.system_fonts: Dict[str, str] = {}  # 字体名: 文件路径
         
         # 初始化字体映射
         self.font_mapping = {
@@ -39,7 +45,6 @@ class FontManager:
         }
         
         self._load_project_fonts()
-        self._scan_system_fonts()
     
     def _load_project_fonts(self) -> None:
         """加载项目字体文件"""
@@ -56,66 +61,9 @@ class FontManager:
                 self.project_fonts[font_name] = str(font_file.absolute())
                 # logger.info(f"加载项目字体: {font_name} -> {font_file}")
     
-    def _scan_system_fonts(self) -> None:
-        """扫描系统字体"""
-        system = platform.system()
-        
-        if system == "Windows":
-            self._scan_windows_fonts()
-        elif system == "Darwin":  # macOS
-            self._scan_macos_fonts()
-        elif system == "Linux":
-            self._scan_linux_fonts()
-        else:
-            logger.warning(f"不支持的操作系统: {system}")
-    
-    def _scan_windows_fonts(self) -> None:
-        """扫描Windows系统字体"""
-        font_dirs = [
-            Path("C:/Windows/Fonts"),
-            Path(os.environ.get('LOCALAPPDATA', 'C:/Users')) / "Microsoft" / "Windows" / "Fonts"
-        ]
-        
-        for font_dir in font_dirs:
-            if font_dir.exists():
-                for font_file in font_dir.iterdir():
-                    if font_file.is_file() and font_file.suffix.lower() in {'.ttf', '.otf'}:
-                        font_name = font_file.stem
-                        self.system_fonts[font_name] = str(font_file.absolute())
-    
-    def _scan_macos_fonts(self) -> None:
-        """扫描macOS系统字体"""
-        font_dirs = [
-            Path("/Library/Fonts"),
-            Path("/System/Library/Fonts"),
-            Path.home() / "Library" / "Fonts"
-        ]
-        
-        for font_dir in font_dirs:
-            if font_dir.exists():
-                for font_file in font_dir.iterdir():
-                    if font_file.is_file() and font_file.suffix.lower() in {'.ttf', '.otf'}:
-                        font_name = font_file.stem
-                        self.system_fonts[font_name] = str(font_file.absolute())
-    
-    def _scan_linux_fonts(self) -> None:
-        """扫描Linux系统字体"""
-        font_dirs = [
-            Path("/usr/share/fonts"),
-            Path("/usr/local/share/fonts"),
-            Path.home() / ".local" / "share" / "fonts"
-        ]
-        
-        for font_dir in font_dirs:
-            if font_dir.exists():
-                for font_file in font_dir.rglob("*"):
-                    if font_file.is_file() and font_file.suffix.lower() in {'.ttf', '.otf'}:
-                        font_name = font_file.stem
-                        self.system_fonts[font_name] = str(font_file.absolute())
-    
     def get_font_path(self, font_name: str) -> Optional[str]:
         """
-        获取字体文件路径，优先使用项目字体
+        获取字体文件路径，只使用项目字体
         
         Args:
             font_name: 字体名称
@@ -126,21 +74,15 @@ class FontManager:
         # 首先尝试字体映射
         mapped_name = self.font_mapping.get(font_name, font_name)
         
-        # 优先在项目字体中查找
+        # 只在项目字体中查找
         for name, path in self.project_fonts.items():
             if mapped_name.lower() in name.lower() or name.lower() in mapped_name.lower():
                 # logger.info(f"使用项目字体: {name} -> {path}")
                 return path
         
-        # 然后在系统字体中查找
-        for name, path in self.system_fonts.items():
-            if mapped_name.lower() in name.lower() or name.lower() in mapped_name.lower():
-                # logger.info(f"使用系统字体: {name} -> {path}")
-                return path
-        
         logger.warning(f"未找到字体: {font_name}")
         return None
-    
+
     def get_available_fonts(self) -> Dict[str, str]:
         """
         获取所有可用的字体列表
@@ -150,14 +92,9 @@ class FontManager:
         """
         available_fonts = {}
         
-        # 添加项目字体
+        # 只添加项目字体
         for font_name in self.project_fonts.keys():
             available_fonts[font_name] = "项目字体"
-        
-        # 添加系统字体
-        for font_name in self.system_fonts.keys():
-            if font_name not in available_fonts:  # 避免重复
-                available_fonts[font_name] = "系统字体"
         
         return available_fonts
     

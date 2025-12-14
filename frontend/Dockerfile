@@ -24,7 +24,8 @@ COPY vite.config.ts ./
 COPY tsconfig.json ./
 COPY tsconfig.node.json ./
 COPY index.html ./
-COPY vite-env.d.ts ./
+# 确保assets目录被复制
+COPY src/assets/ ./src/assets/
 
 # 构建应用
 RUN npm run build

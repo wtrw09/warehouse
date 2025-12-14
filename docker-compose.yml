@@ -2,10 +2,14 @@ services:
   # 仓库管理系统前端
   frontend:
     image: warehouse-frontend:latest${ARCH_SUFFIX:-}
+    pull_policy: never  # 强制使用本地镜像，不从远程拉取
     ports:
       - "8081:80" 
     environment:
       - NODE_ENV=production
+      # 禁用开发工具和热重载
+      - VITE_DEV_TOOLS=false
+      - VITE_HMR=false
     restart: unless-stopped
     depends_on:
       warehouse-backend:
@@ -16,8 +20,10 @@ services:
   # 仓库管理系统后端
   warehouse-backend:
     image: warehouse-backend:latest${ARCH_SUFFIX:-}
-    ports:
-      - "8000:8000"
+    pull_policy: never  # 强制使用本地镜像，不从远程拉取
+    #移除端口映射，后端只能在容器内部访问
+    #ports:
+      #- "8000:8000"
     environment:
       - WORKERS=1  # SQLite数据库，必须使用单进程模式避免锁冲突
     volumes:
@@ -39,6 +45,7 @@ services:
   # Redis服务
   redis:
     image: redis:7.2-alpine${ARCH_SUFFIX:-}
+    pull_policy: never  # 强制使用本地镜像，不从远程拉取
     ports:
       - "6379:6379"
     volumes:

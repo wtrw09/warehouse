@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Security
 from sqlmodel import Session, select, func, and_, or_, distinct
 from typing import Optional
+import logging
 
 from models.base.bin import Bin
 from models.base.warehouse import Warehouse
@@ -11,6 +12,9 @@ from schemas.base.bin import (
 from schemas.account.user import UserResponse
 from database import get_db
 from core.security import get_current_active_user, get_required_scopes_for_route
+
+# 获取日志记录器
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/bins", tags=["货位管理"])
 
@@ -168,7 +172,7 @@ def get_bin(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取货位信息失败: {str(e)}")
 
-@router.post("/", response_model=BinResponse)
+@router.post("", response_model=BinResponse)
 def create_bin(
     bin_data: BinCreate,
     db: Session = Depends(get_db),
@@ -194,7 +198,7 @@ def create_bin(
             raise HTTPException(status_code=400, detail="该仓库中已存在相同名称的货位")
         
         # 创建货位，自动设置创建人和仓库名称
-        bin_dict = bin_data.dict()
+        bin_dict = bin_data.model_dump()
         bin_dict["creator"] = current_user.username
         bin_dict["warehouse_name"] = warehouse.warehouse_name
         
@@ -231,6 +235,16 @@ def update_bin(
                 raise HTTPException(status_code=404, detail="仓库不存在")
             # 更新仓库名称
             bin.warehouse_name = warehouse.warehouse_name
+        else:
+            # 即使仓库ID没有变化，也主动获取当前仓库的最新名称并更新
+            # 这样可以确保货位中的仓库名称与仓库表中的最新名称保持一致
+            warehouse = db.get(Warehouse, bin.warehouse_id)
+            if warehouse and not warehouse.is_delete:
+                bin.warehouse_name = warehouse.warehouse_name
+        
+        # 调试输出：打印接收到的更新数据
+        update_data = bin_data.model_dump(exclude_none=True)
+        print(f"DEBUG: 更新货位 {bin_id} 接收到的数据: {update_data}")
         
         # 如果更新了货位名称或仓库ID，检查唯一性约束
         if (bin_data.bin_name is not None and bin_data.bin_name != bin.bin_name) or \
@@ -251,8 +265,12 @@ def update_bin(
             if existing_bin:
                 raise HTTPException(status_code=400, detail="该仓库中已存在相同名称的货位")
         
-        # 更新字段
-        update_data = bin_data.dict(exclude_unset=True)
+        # 更新字段 - 使用exclude_none=True而不是exclude_unset=True，以便正确处理空值
+        update_data = bin_data.model_dump(exclude_none=True)
+        
+        # 调试日志：打印接收到的数据
+        logger.debug(f"更新货位 {bin_id} 接收到的数据: {update_data}")
+        
         for field, value in update_data.items():
             setattr(bin, field, value)
         

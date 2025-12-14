@@ -3,6 +3,7 @@ from sqlmodel import Session, select, func, and_, or_
 from typing import List
 import logging
 from datetime import datetime
+import pypinyin
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,33 @@ from schemas.base.equipment import (
 from schemas.account.user import UserResponse
 from core.security import get_current_active_user, get_required_scopes_for_route
 from database import get_db
+
+def generate_equipment_code(equipment_name: str, major_code: str) -> str:
+    """
+    根据装备名称自动生成装备编码
+    - 格式：专业代码 + 装备名称的前两个首字母
+    - 如果是拼音则取首字母
+    """
+    # 提取装备名称的中文字符首字母拼音
+    pinyin_list = pypinyin.lazy_pinyin(equipment_name, style=pypinyin.STYLE_FIRST_LETTER)
+    
+    # 合并所有首字母
+    initials = ''.join(pinyin_list)
+    
+    # 只保留字母，过滤掉非字母字符
+    letters = ''.join(filter(str.isalpha, initials))
+    
+    # 如果字母不足2个，用0补充
+    if len(letters) < 2:
+        letters = letters.ljust(2, '0')
+    
+    # 取前两个字母并转换为大写
+    equipment_initials = letters[:2].upper()
+    
+    # 组合编码：专业代码 + 装备名称首字母
+    equipment_code = f"{major_code}_{equipment_initials}"
+    
+    return equipment_code
 
 equipment_router = APIRouter(tags=["装备管理"], prefix="/equipments")
 
@@ -248,14 +276,25 @@ async def create_equipment(
         
         # 验证专业ID是否存在
         major_name = None
+        major_code = None
         if equipment.major_id:
             major = db.exec(select(Major).where(Major.id == equipment.major_id, Major.is_delete != True)).first()
             if not major:
                 raise HTTPException(status_code=400, detail="专业ID不存在")
             major_name = major.major_name
+            major_code = major.major_code
+        
+        # 自动生成装备编码
+        if equipment.major_id:
+            # 生成装备编码：专业代码 + 装备名称的前两个首字母
+            equipment_code = generate_equipment_code(equipment.equipment_name, major_code)
+        else:
+            # 如果没有专业ID，使用默认编码：DEFAULT_装备名称的前两个首字母
+            equipment_code = generate_equipment_code(equipment.equipment_name, "DEFAULT")
         
         # 创建新装备
         db_equipment = Equipment(
+            equipment_code=equipment_code,
             equipment_name=equipment.equipment_name,
             specification=equipment.specification,
             major_id=equipment.major_id,
@@ -321,7 +360,7 @@ async def update_equipment(
                 raise HTTPException(status_code=400, detail="装备名称和规格型号组合已存在")
         
         # 更新字段
-        update_data = equipment_update.dict(exclude_unset=True)
+        update_data = equipment_update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if value is not None:
                 setattr(db_equipment, field, value)

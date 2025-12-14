@@ -29,7 +29,7 @@ export const outboundOrderAPI = {
    * 获取出库单分页列表
    */
   getOutboundOrders: async (params: OutboundOrderQueryParams): Promise<OutboundOrderPaginationResponseType> => {
-    const response = await api.get<OutboundOrderPaginationResponseType>('/outbound-orders/', { params });
+    const response = await api.get<OutboundOrderPaginationResponseType>('/outbound-orders', { params });
     return response.data;
   },
 
@@ -53,7 +53,12 @@ export const outboundOrderAPI = {
    * 创建新出库单
    */
   createOutboundOrder: async (data: OutboundOrderCreate): Promise<OutboundOrderCreateResponseType> => {
-    const response = await api.post<OutboundOrderCreateResponseType>('/outbound-orders/', data);
+    const response = await api.post<OutboundOrderCreateResponseType>('/outbound-orders', data, {
+      headers: {
+        // 添加自定义头部，告诉拦截器我们会自行处理错误消息
+        'x-handle-error-locally': 'true'
+      }
+    });
     return response.data;
   },
 

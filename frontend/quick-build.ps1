@@ -1,4 +1,4 @@
-# 简化的 Docker 镜像构建和导出脚本
+﻿# 简化的 Docker 镜像构建和导出脚本
 # 专注于解决网络问题和跨平台构建
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8

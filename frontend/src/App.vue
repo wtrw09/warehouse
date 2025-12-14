@@ -1,11 +1,34 @@
 <template>
   <div id="app">
-    <router-view />
+    <BackgroundPreloader v-if="showPreloader" />
+    <router-view v-show="!showPreloader" />
   </div>
 </template>
 
 <script setup>
-import router from './router'
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import BackgroundPreloader from './components/BackgroundPreloader.vue';
+
+const router = useRouter();
+const showPreloader = ref(true);
+
+// 监听背景预加载完成事件
+const handleBackgroundPreloaded = () => {
+  console.log('🎉 背景预加载完成，显示主页面');
+  showPreloader.value = false;
+};
+
+onMounted(() => {
+  // 监听预加载完成事件
+  window.addEventListener('backgroundPreloaded', handleBackgroundPreloaded);
+  
+  // 如果是登录页，立即显示（避免双重预加载）
+  if (window.location.pathname === '/login' || window.location.pathname === '/') {
+    console.log('🔍 检测到登录页，跳过预加载器');
+    showPreloader.value = false;
+  }
+});
 </script>
 
 <style>

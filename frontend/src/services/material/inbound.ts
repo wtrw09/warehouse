@@ -30,7 +30,7 @@ export const inboundOrderAPI = {
    * 获取入库单分页列表
    */
   getInboundOrders: async (params: InboundOrderQueryParams): Promise<InboundOrderPaginationResponseType> => {
-    const response = await api.get<InboundOrderPaginationResponseType>('/inbound-orders/', { params });
+    const response = await api.get<InboundOrderPaginationResponseType>('/inbound-orders', { params });
     return response.data;
   },
 
@@ -54,7 +54,7 @@ export const inboundOrderAPI = {
    * 创建新入库单
    */
   createInboundOrder: async (data: InboundOrderCreate): Promise<InboundOrderCreateResponseType> => {
-    const response = await api.post<InboundOrderCreateResponseType>('/inbound-orders/', data);
+    const response = await api.post<InboundOrderCreateResponseType>('/inbound-orders', data);
     return response.data;
   },
 

@@ -1,4 +1,4 @@
-﻿﻿# Windows PowerShell 容器启动脚本 (AMD64)
+﻿# Windows PowerShell 容器启动脚本 (AMD64)
 # 用于启动仓库管理系统的所有容器
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8

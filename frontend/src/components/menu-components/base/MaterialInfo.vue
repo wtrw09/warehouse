@@ -1,585 +1,607 @@
 <template>
   <div class="base-management-container">
-    <!-- 操作栏 -->
-    <el-card class="base-operation-card" shadow="hover">
-      <div class="base-operation-bar">
-        <div class="base-operation-bar__left">
-          <el-button 
-            type="primary" 
-            @click="handleCreate"
-            :icon="Plus"
-          >
-            新增器材
-          </el-button>
-          <el-button 
-            type="default" 
-            @click="getMaterialList"
-            :loading="loading"
-            :icon="Refresh"
-          >
-            刷新
-          </el-button>
-          <!-- 批量删除按钮 -->
-          <el-button 
-            v-if="selectedIds.length > 0"
-            type="danger" 
-            @click="handleBatchDelete" 
-            :icon="Delete"
-          >
-            批量删除 ({{ selectedIds.length }})
-          </el-button>
-        </div>
-        <div class="base-operation-bar__right">
-          <!-- 专业筛选下拉框 -->
-          <el-select
-            filterable
-            v-model="queryParams.major_id"
-            placeholder="筛选专业"
-            clearable
-            style="width: 150px;"
-            @change="handleMajorChange"
-          >
-            <el-option
-              v-for="major in majors"
-              :key="major.id"
-              :label="major.major_name"
-              :value="major.id"
-            />
-          </el-select>
-          
-          <!-- 装备筛选下拉框 -->
-          <el-select
-            filterable
-            v-model="queryParams.equipment_id"
-            placeholder="筛选装备"
-            clearable
-            style="width: 200px;"
-            @change="handleSearch"
-          >
-            <el-option
-              v-for="equipment in filteredEquipments"
-              :key="equipment.id"
-              :label="equipment.equipment_name + (equipment.specification ? '  ' + equipment.specification : '')"
-              :value="equipment.id"
-            />
-          </el-select>
-          
-          <el-input
-            v-model="queryParams.search"
-            placeholder="输入搜索关键词，用空格分隔"
-            style="width: 320px;"
-            clearable
-            @input="handleSearch"
-            @clear="handleSearch"
-          />
-        </div>
-      </div>
-    </el-card>
+    <!-- 权限检查 -->
+    <el-alert
+      v-if="!hasPermission('BASE-read')"
+      title="权限不足"
+      type="error"
+      :closable="false"
+      show-icon
+      class="base-permission-alert"
+    >
+      <template #default>
+        <p>您没有足够的权限访问器材管理功能。</p>
+        <p>需要权限：<el-tag type="danger">BASE-read</el-tag></p>
+        <p>请与管理员联系以获取相应权限。</p>
+      </template>
+    </el-alert>
 
-    <!-- 器材列表 -->
-    <el-card class="base-table-card" shadow="hover">
-      <template #header>
-        <div class="base-card-header">
-          <el-icon><List /></el-icon>
-          <span>器材列表</span>
-          <div class="base-card-header__stats" v-if="total > 0">
-            <span>总计: {{ total }}</span>
+    <!-- 器材管理内容 -->
+    <div v-else class="base-content">
+      <!-- 操作栏 -->
+      <el-card class="base-operation-card" shadow="hover">
+        <div class="base-operation-bar">
+          <div class="base-operation-bar__left">
+            <el-button 
+              type="primary" 
+              @click="handleCreate"
+              :icon="Plus"
+              v-if="hasPermission('BASE-edit')"
+            >
+              新增器材
+            </el-button>
+            <el-button 
+              type="default" 
+              @click="getMaterialList"
+              :loading="loading"
+              :icon="Refresh"
+            >
+              刷新
+            </el-button>
+            <!-- 批量删除按钮 -->
+            <el-button 
+              v-if="selectedIds.length > 0 && hasPermission('BASE-edit')"
+              type="danger" 
+              @click="handleBatchDelete" 
+              :icon="Delete"
+            >
+              批量删除 ({{ selectedIds.length }})
+            </el-button>
+          </div>
+          <div class="base-operation-bar__right">
+            <!-- 专业筛选下拉框 -->
+            <el-select
+              filterable
+              v-model="queryParams.major_id"
+              placeholder="筛选专业"
+              clearable
+              style="width: 150px;"
+              @change="handleMajorChange"
+            >
+              <el-option
+                v-for="major in majors"
+                :key="major.id"
+                :label="major.major_name"
+                :value="major.id"
+              />
+            </el-select>
+            
+            <!-- 装备筛选下拉框 -->
+            <el-select
+              filterable
+              v-model="queryParams.equipment_id"
+              placeholder="筛选装备"
+              clearable
+              style="width: 200px;"
+              @change="handleSearch"
+            >
+              <el-option
+                v-for="equipment in filteredEquipments"
+                :key="equipment.id"
+                :label="equipment.equipment_name + (equipment.specification ? '  ' + equipment.specification : '')"
+                :value="equipment.id"
+              />
+            </el-select>
+            
+            <el-input
+              v-model="queryParams.search"
+              placeholder="输入搜索关键词，用空格分隔"
+              style="width: 320px;"
+              clearable
+              @input="handleSearch"
+              @clear="handleSearch"
+            />
           </div>
         </div>
-      </template>
+      </el-card>
 
-      <!-- 加载状态 -->
-      <div v-if="loading" class="base-loading-container">
-        <el-skeleton :rows="8" animated />
-      </div>
+      <!-- 器材列表 -->
+      <el-card class="base-table-card" shadow="hover">
+        <template #header>
+          <div class="base-card-header">
+            <el-icon><List /></el-icon>
+            <span>器材列表</span>
+            <div class="base-card-header__stats" v-if="total > 0">
+              <span>总计: {{ total }}</span>
+            </div>
+          </div>
+        </template>
 
-      <!-- 器材表格 -->
-      <div v-else>
-        <el-table
-          ref="tableRef"
-          :data="tableData"
-          stripe
-          border
-          height="400"
-          :empty-text="'暂无器材数据'"
-          class="base-table"
-          @selection-change="handleSelectionChange"
-          @sort-change="handleSortChange"
-        >
-          <el-table-column type="selection" width="55" align="center" />
-          <el-table-column 
-            prop="material_code" 
-            label="器材编码" 
-            min-width="120" 
-            align="center" 
-            fixed="left"
-            sortable="custom"
-            :sort-orders="['ascending', 'descending']"
-          >
-          </el-table-column>
-          <el-table-column 
-            prop="material_name" 
-            label="器材名称" 
-            width="150" 
-            align="center" 
-            fixed="left"
-            sortable="custom"
-            :sort-orders="['ascending', 'descending']"
-          >
-            <template #default="{ row }">
-              <el-tag class="base-tag-primary-dark">{{ row.material_name }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="material_specification" label="器材规格" width="120" align="center" />
-          <el-table-column prop="material_query_code" label="查询码" width="120" align="center" />
-          
-          <el-table-column prop="material_wdh" label="长宽高" width="100" align="center" />
-          
-          <el-table-column prop="major_name" label="所属专业" width="120" align="center" />
-          <el-table-column prop="equipment_name" label="所属装备" width="120" align="center" />
-          <el-table-column prop="safety_stock" label="安全库存" width="100" align="center" />
-          
-          <el-table-column prop="material_desc" label="器材描述" width="150" align="center" />
-          <el-table-column 
-            v-if="false"
-            prop="id" 
-            label="ID" 
-            width="80" 
-            align="center" 
-            sortable="custom"
-            :sort-orders="['ascending', 'descending']"
-          />
-          <el-table-column 
-            prop="create_time" 
-            label="创建时间" 
-            width="150" 
-            align="center" 
-            sortable="custom"
-            :sort-orders="['ascending', 'descending']"
-          />
-          <el-table-column prop="creator" label="创建人" width="100" align="center" />
-          <el-table-column label="操作" width="120" align="center" fixed="right">
-            <template #default="{ row }">
-              <div class="base-action-buttons">
-                <ActionTooltip content="编辑器材">
-                  <el-button 
-                    type="primary"
-                    size="small"
-                    @click="handleEdit(row)"
-                    :icon="Edit"
-                    class="base-button-circle"
-                  />
-                </ActionTooltip>
-                <ActionTooltip content="删除器材">
-                  <el-button 
-                    type="danger"
-                    size="small"
-                    @click="handleDelete(row)"
-                    :icon="Delete"
-                    class="base-button-circle"
-                  />
-                </ActionTooltip>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <!-- 分页 -->
-        <div class="base-pagination-container">
-          <el-pagination
-            v-model:current-page="queryParams.page"
-            v-model:page-size="queryParams.page_size"
-            :page-sizes="[5,10, 20, 50, 100]"
-            :total="total"
-            layout="total, sizes, prev, pager, next, jumper"
-            :pager-count="7"
-            background
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-          >
-            <template #sizes="{ size }">
-              <span>{{ size }}条/页</span>
-            </template>
-            <template #total="{ total }">
-              <span>共 {{ total }} 条</span>
-            </template>
-            <template #jumper>
-              <span>前往</span>
-            </template>
-          </el-pagination>
+        <!-- 加载状态 -->
+        <div v-if="loading" class="base-loading-container">
+          <el-skeleton :rows="8" animated />
         </div>
-      </div>
-    </el-card>
 
-    <!-- 新增/编辑抽屉 -->
-    <el-drawer
-      :title="dialogTitle"
-      v-model="dialogVisible"
-      direction="rtl"
-      size="900px"
-      :before-close="handleDialogClose"
-      :modal="true"
-      class="base-drawer"
-    >
-      <div class="base-drawer-body">
-        <div class="equipment-select-layout">
-          <!-- 左侧：编辑区域 -->
-          <div class="edit-section">
-            <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-              <el-form-item label="器材编码" prop="material_code">
-                <el-input 
-                  v-model="form.material_code" 
-                  placeholder="可不用输入，自动生成" 
-                  @focus="() => {
-                    showMaterialCodePanel = true;
-                    showEquipmentPanel = false;
-                    showMaterialSearchPanel = false;
-                  }"
-                />
-              </el-form-item>
-              
-              <el-form-item label="器材名称" prop="material_name">
-                <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
-                  <el-input 
-                    v-model="form.material_name" 
-                    placeholder="请输入器材名称" 
-                    @focus="() => {
-                        showMaterialCodePanel = false;
-                        showEquipmentPanel = false;
-                        showMaterialSearchPanel = true;
-                      }"
-                    style="flex: 1;"
-                  />
-                  <el-tooltip 
-                    content="将常用器材关键字添加到专业描述中，这样下次你输入这个名字时可以自动筛选出专业" 
-                    placement="top"
-                  >
+        <!-- 器材表格 -->
+        <div v-else>
+          <el-table
+            ref="tableRef"
+            :data="tableData"
+            stripe
+            border
+            height="400"
+            :empty-text="'暂无器材数据'"
+            class="base-table"
+            @selection-change="handleSelectionChange"
+            @sort-change="handleSortChange"
+          >
+            <el-table-column type="selection" width="55" align="center" />
+            <el-table-column 
+              prop="material_code" 
+              label="器材编码" 
+              min-width="120" 
+              align="center" 
+              fixed="left"
+              sortable="custom"
+              :sort-orders="['ascending', 'descending']"
+            >
+            </el-table-column>
+            <el-table-column 
+              prop="material_name" 
+              label="器材名称" 
+              width="150" 
+              align="center" 
+              fixed="left"
+              sortable="custom"
+              :sort-orders="['ascending', 'descending']"
+            >
+              <template #default="{ row }">
+                <div class="base-cell base-cell-primary">{{ row.material_name }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="material_specification" label="器材规格" width="120" align="center" />
+            <el-table-column prop="material_query_code" label="查询码" width="120" align="center" />
+                    
+            <el-table-column prop="major_name" label="所属专业" width="120" align="center" />
+            <el-table-column prop="equipment_name" label="所属装备" width="120" align="center" />
+            <el-table-column prop="safety_stock" label="安全库存" width="100" align="center" />
+            
+            <el-table-column prop="material_wdh" label="长宽高" width="100" align="center" />
+            <el-table-column prop="material_desc" label="器材描述" width="150" align="center" />
+            <el-table-column 
+              v-if="false"
+              prop="id" 
+              label="ID" 
+              width="80" 
+              align="center" 
+              sortable="custom"
+              :sort-orders="['ascending', 'descending']"
+            />
+            <el-table-column 
+              prop="create_time" 
+              label="创建时间" 
+              width="150" 
+              align="center" 
+              sortable="custom"
+              :sort-orders="['ascending', 'descending']"
+            />
+            <el-table-column prop="creator" label="创建人" width="100" align="center" />
+            <el-table-column label="操作" width="120" align="center" fixed="right" v-if="hasPermission('BASE-edit')">
+              <template #default="{ row }">
+                <div class="base-action-buttons">
+                  <ActionTooltip content="编辑器材">
                     <el-button 
-                      type="info" 
-                      @click="handleAddDescriptionFromSearch" 
-                      class="base-button"
+                      type="primary"
                       size="small"
-                    >
-                      添加专业描述
-                    </el-button>
-                  </el-tooltip>
+                      @click="handleEdit(row)"
+                      :icon="Edit"
+                      class="base-button-circle"
+                      v-if="hasPermission('BASE-edit')"
+                    />
+                  </ActionTooltip>
+                  <ActionTooltip content="删除器材">
+                    <el-button 
+                      type="danger"
+                      size="small"
+                      @click="handleDelete(row)"
+                      :icon="Delete"
+                      class="base-button-circle"
+                      v-if="hasPermission('BASE-edit')"
+                    />
+                  </ActionTooltip>
                 </div>
-              </el-form-item>
-              
-              <el-form-item label="器材规格">
-                <el-input v-model="form.material_specification" placeholder="请输入器材规格" />
-              </el-form-item>
-              
-              <el-form-item label="器材描述">
-                <el-input v-model="form.material_desc" placeholder="请输入器材描述" />
-              </el-form-item>
-              
-              <el-form-item label="长宽高">
-                <el-input v-model="form.material_wdh" placeholder="例如：100×50×30" />
-              </el-form-item>
-              
-              <el-form-item label="安全库存">
-                <el-input-number v-model="form.safety_stock" :min="0" placeholder="请输入安全库存" />
-              </el-form-item>
-              
-              <el-form-item label="查询码">
-                <el-input v-model="form.material_query_code" placeholder="可自定义查询码，不填则自动生成" />
-              </el-form-item>
-              
-              <el-form-item label="所属专业" prop="major_id">
-                <el-select v-model="form.major_id" placeholder="请选择专业" @change="handleDrawerMajorChange">
-                  <el-option
-                    v-for="major in majors"
-                    :key="major.id"
-                    :label="major.major_name"
-                    :value="major.id"
-                  />
-                </el-select>
-              </el-form-item>
-              
-              <el-form-item label="所属装备" prop="equipment_id">
-                <div class="equipment-selection">
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <!-- 分页 -->
+          <div class="base-pagination-container">
+            <el-pagination
+              v-model:current-page="queryParams.page"
+              v-model:page-size="queryParams.page_size"
+              :page-sizes="[5,10, 20, 50, 100]"
+              :total="total"
+              layout="total, sizes, prev, pager, next, jumper"
+              :pager-count="7"
+              background
+              @size-change="handleSizeChange"
+              @current-change="handleCurrentChange"
+            >
+              <template #sizes="{ size }">
+                <span>{{ size }}条/页</span>
+              </template>
+              <template #total="{ total }">
+                <span>共 {{ total }} 条</span>
+              </template>
+              <template #jumper>
+                <span>前往</span>
+              </template>
+            </el-pagination>
+          </div>
+        </div>
+      </el-card>
+
+      <!-- 新增/编辑抽屉 -->
+      <el-drawer
+        :title="dialogTitle"
+        v-model="dialogVisible"
+        direction="rtl"
+        size="900px"
+        :before-close="handleDialogClose"
+        :modal="true"
+        class="base-drawer"
+      >
+        <div class="base-drawer-body">
+          <div class="equipment-select-layout">
+            <!-- 左侧：编辑区域 -->
+            <div class="edit-section">
+              <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+                <el-form-item label="器材编码" prop="material_code">
                   <el-input 
-                    v-model="selectedEquipmentName" 
-                    placeholder="点击右侧选择装备" 
-                    readonly 
+                    v-model="form.material_code" 
+                    placeholder="可不用输入，自动生成" 
                     @focus="() => {
-                      showMaterialCodePanel = false;
-                      showEquipmentPanel = true;
+                      showMaterialCodePanel = true;
+                      showEquipmentPanel = false;
                       showMaterialSearchPanel = false;
                     }"
-                  >
-                    <template #append>
-                      <el-button @click="clearEquipmentSelection" :icon="Delete" />
-                    </template>
-                  </el-input>
-                </div>
-              </el-form-item>
-            </el-form>
-          </div>
-          
-          <!-- 右侧：装备/器材查询区域 -->
-          <div class="equipment-search-section" v-show="showEquipmentPanel || showMaterialSearchPanel || showMaterialCodePanel">
-            <!-- 装备搜索面板 -->
-            <div v-show="showEquipmentPanel">
-              <div class="equipment-search-header">
-                <div class="header-row">
-                  <h4>选择装备</h4>
-                  <div class="search-controls">
-                    <el-input
-                      v-model="equipmentSearchParams.search"
-                      placeholder="搜索装备名称或型号"
-                      clearable
-                      style="width: 150px;"
-                      @input="handleEquipmentSearch"
-                      @clear="handleEquipmentSearch"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div class="equipment-list-container">
-                <div v-if="equipmentLoading" class="loading-container">
-                  <el-skeleton :rows="5" animated />
-                </div>
+                  />
+                </el-form-item>
                 
-                <div v-else class="equipment-list">
-                  <div 
-                    v-for="equipment in searchedEquipments" 
-                    :key="equipment.id"
-                    class="equipment-item"
-                    :class="{ 'selected': form.equipment_id === equipment.id }"
-                    @dblclick="selectEquipment(equipment)"
-                  >
-                    <div class="equipment-name-spec">
-                      <span class="equipment-name">{{ equipment.equipment_name }}</span>
-                      <span class="equipment-spec">{{ equipment.specification ? `(${equipment.specification})` : '' }}</span>
-                    </div>
-                    <div class="equipment-major">{{ equipment.major_name || '未分类' }}</div>
+                <el-form-item label="器材名称" prop="material_name">
+                  <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
+                    <el-input 
+                      v-model="form.material_name" 
+                      placeholder="请输入器材名称" 
+                      @focus="() => {
+                          showMaterialCodePanel = false;
+                          showEquipmentPanel = false;
+                          showMaterialSearchPanel = true;
+                        }"
+                      style="flex: 1;"
+                    />
+                    <el-tooltip 
+                      content="将常用器材关键字添加到专业描述中，这样下次你输入这个名字时可以自动筛选出专业" 
+                      placement="top"
+                    >
+                      <el-button 
+                        type="info" 
+                        @click="handleAddDescriptionFromSearch" 
+                        class="base-button"
+                        size="small"
+                      >
+                        添加专业描述
+                      </el-button>
+                    </el-tooltip>
                   </div>
-                  
-                  <div v-if="searchedEquipments.length === 0" class="empty-state">
-                    <el-empty description="暂无装备数据" />
+                </el-form-item>
+                
+                <el-form-item label="器材规格">
+                  <el-input v-model="form.material_specification" placeholder="请输入器材规格" />
+                </el-form-item>
+                
+                <el-form-item label="器材描述">
+                  <el-input v-model="form.material_desc" placeholder="请输入器材描述" />
+                </el-form-item>
+                
+                <el-form-item label="长宽高">
+                  <el-input v-model="form.material_wdh" placeholder="例如：100×50×30" />
+                </el-form-item>
+                
+                <el-form-item label="安全库存">
+                  <el-tooltip content="如果设为0，系统将不进行安全库存检测" placement="right">
+                    <el-input-number v-model="form.safety_stock" :min="0" placeholder="请输入安全库存" />
+                  </el-tooltip>
+                </el-form-item>
+                
+                <el-form-item label="查询码">
+                  <el-input v-model="form.material_query_code" placeholder="可自定义查询码，不填则自动生成" />
+                </el-form-item>
+                
+                <el-form-item label="所属专业" prop="major_id">
+                  <el-select v-model="form.major_id" placeholder="请选择专业" @change="handleDrawerMajorChange">
+                    <el-option
+                      v-for="major in majors"
+                      :key="major.id"
+                      :label="major.major_name"
+                      :value="major.id"
+                    />
+                  </el-select>
+                </el-form-item>
+                
+                <el-form-item label="所属装备" prop="equipment_id">
+                  <div class="equipment-selection">
+                    <el-input 
+                      v-model="selectedEquipmentName" 
+                      placeholder="点击右侧选择装备" 
+                      readonly 
+                      @focus="() => {
+                        showMaterialCodePanel = false;
+                        showEquipmentPanel = true;
+                        showMaterialSearchPanel = false;
+                      }"
+                    >
+                      <template #append>
+                        <el-button @click="clearEquipmentSelection" :icon="Delete" />
+                      </template>
+                    </el-input>
                   </div>
-                </div>
-              </div>
-              
-              <div class="equipment-pagination" v-if="equipmentTotal > 0">
-                <el-pagination
-                  v-model:current-page="equipmentSearchParams.page"
-                  v-model:page-size="equipmentSearchParams.page_size"
-                  :total="equipmentTotal"
-                  :page-sizes="[10, 20, 50]"
-                  layout="prev, pager, next, sizes"
-                  small
-                  @size-change="handleEquipmentSearch"
-                  @current-change="handleEquipmentSearch"
-                />
-              </div>
+                </el-form-item>
+              </el-form>
             </div>
             
-            <!-- 器材搜索面板 -->
-            <div v-show="showMaterialSearchPanel">
-              <div class="equipment-search-header">
-                <div class="header-row">
-                  <h4>现有器材列表</h4>
-                  <div class="search-controls">
-                    <el-input
-                      v-model="materialSearchParams.search"
-                      placeholder="搜索器材名称"
-                      clearable
-                      style="width: 150px;"
-                      @input="handleMaterialSearch"
-                      @clear="handleMaterialSearch"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div class="equipment-list-container">
-                <div v-if="materialSearchLoading" class="loading-container">
-                  <el-skeleton :rows="5" animated />
-                </div>
-                
-                <div v-else class="equipment-list">
-                  <div 
-                    v-for="material in searchedMaterials" 
-                    :key="material.id"
-                    class="equipment-item"
-                    @dblclick="selectMaterial(material)"
-                  >
-                    <div class="equipment-name-spec">
-                      <span class="equipment-name">{{ material.material_name }}</span>
-                      <span class="equipment-spec">{{ material.material_specification ? `(${material.material_specification})` : '' }}</span>
-                    </div>
-                    <div class="equipment-major">{{ material.material_code }} {{ material.major_name ? `(${material.major_name}` : '' }}{{ material.equipment_name ? `-${material.equipment_name})` : (material.major_name ? ')' : '') }}</div>
-                  </div>
-                  
-                  <div v-if="searchedMaterials.length === 0" class="empty-state">
-                    <el-empty description="暂无器材数据" />
-                  </div>
-                </div>
-              </div>
-              
-              <div class="equipment-pagination" v-if="materialTotal > 0">
-                <el-pagination
-                  v-model:current-page="materialSearchParams.page"
-                  v-model:page-size="materialSearchParams.page_size"
-                  :total="materialTotal"
-                  :page-sizes="[10, 20, 50]"
-                  layout="prev, pager, next, sizes"
-                  small
-                  @size-change="handleMaterialSearch"
-                  @current-change="handleMaterialSearch"
-                />
-              </div>
-            </div>
-            
-            <!-- 器材编码推荐面板 -->
-              <div v-show="showMaterialCodePanel">
+            <!-- 右侧：装备/器材查询区域 -->
+            <div class="equipment-search-section" v-show="showEquipmentPanel || showMaterialSearchPanel || showMaterialCodePanel">
+              <!-- 装备搜索面板 -->
+              <div v-show="showEquipmentPanel">
                 <div class="equipment-search-header">
                   <div class="header-row">
-                    <h4>器材编码推荐</h4>
+                    <h4>选择装备</h4>
                     <div class="search-controls">
                       <el-input
-                        v-model="materialCodeSearchParams.search"
-                        placeholder="搜索专业名称或描述"
+                        v-model="equipmentSearchParams.search"
+                        placeholder="搜索装备名称或型号"
                         clearable
                         style="width: 150px;"
-                        @input="handleMaterialCodeSearch"
-                        @clear="handleMaterialCodeSearch"
+                        @input="handleEquipmentSearch"
+                        @clear="handleEquipmentSearch"
                       />
-
                     </div>
                   </div>
-                </div>
-              
-              <!-- 专业选择区域 -->
-              <div class="material-code-level-list-container">                
-                <div v-if="materialCodeLevelLoading" class="loading-container">
-                  <el-skeleton :rows="5" animated />
                 </div>
                 
-                <div v-else class="material-code-level-list" style="max-height: 200px; overflow-y: auto;">
-                  <div v-if="filteredMaterialCodeLevels.length === 0" class="empty-state">
-                    <el-empty description="暂无专业数据" />
+                <div class="equipment-list-container">
+                  <div v-if="equipmentLoading" class="loading-container">
+                    <el-skeleton :rows="5" animated />
                   </div>
                   
-                  <div v-else class="material-code-level-items">
+                  <div v-else class="equipment-list">
                     <div 
-                      v-for="level in filteredMaterialCodeLevels" 
-                      :key="level.id"
-                      class="material-code-level-item"
-                      :class="{ 'selected': selectedMaterialCodeLevel?.id === level.id }"
-                      @click="selectMaterialCodeLevel(level)"
+                      v-for="equipment in searchedEquipments" 
+                      :key="equipment.id"
+                      class="equipment-item"
+                      :class="{ 'selected': form.equipment_id === equipment.id }"
+                      @dblclick="selectEquipment(equipment)"
                     >
-                      <div class="level-info">
-                        <div class="level-name-code">
-                          <span class="level-name">{{ level.sub_major_name }}</span>
-                          <span class="level-code">({{ level.sub_major_code }})</span>
-                        </div>
-                        <div class="major-info">
-                          {{ level.major_name }}
-                        </div>
+                      <div class="equipment-name-spec">
+                        <span class="equipment-name">{{ equipment.equipment_name }}</span>
+                        <span class="equipment-spec">{{ equipment.specification ? `(${equipment.specification})` : '' }}</span>
                       </div>
+                      <div class="equipment-major">{{ equipment.major_name || '未分类' }}</div>
+                    </div>
+                    
+                    <div v-if="searchedEquipments.length === 0" class="empty-state">
+                      <el-empty description="暂无装备数据" />
                     </div>
                   </div>
+                </div>
+                
+                <div class="equipment-pagination" v-if="equipmentTotal > 0">
+                  <el-pagination
+                    v-model:current-page="equipmentSearchParams.page"
+                    v-model:page-size="equipmentSearchParams.page_size"
+                    :total="equipmentTotal"
+                    :page-sizes="[10, 20, 50]"
+                    layout="prev, pager, next, sizes"
+                    small
+                    @size-change="handleEquipmentSearch"
+                    @current-change="handleEquipmentSearch"
+                  />
                 </div>
               </div>
               
-              <!-- 专业选择下拉列表 -->
-              <div class="professional-selection-container">
-                <div class="professional-selection-header">
-                  <h4>专业选择</h4>
+              <!-- 器材搜索面板 -->
+              <div v-show="showMaterialSearchPanel">
+                <div class="equipment-search-header">
+                  <div class="header-row">
+                    <h4>现有器材列表</h4>
+                    <div class="search-controls">
+                      <el-input
+                        v-model="materialSearchParams.search"
+                        placeholder="搜索器材名称"
+                        clearable
+                        style="width: 150px;"
+                        @input="handleMaterialSearch"
+                        @clear="handleMaterialSearch"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div class="professional-selection-form">
-                  <el-form label-width="80px">
-                    <el-form-item label="一级专业">
-                      <el-select 
-                        v-model="selectedPrimaryMajor" 
-                        placeholder="请选择一级专业"
-                        @change="handlePrimaryMajorChange"
-                        style="width: 100%;"
-                        clearable
-                        filterable
-                      >
-                        <el-option
-                          v-for="major in validPrimaryMajors"
-                          :key="major.id"
-                          :label="major.major_name"
-                          :value="major.major_code"
-                        />
-                      </el-select>
-                    </el-form-item>
-                    
-                    <el-form-item label="二级专业">
-                      <el-select 
-                        v-model="selectedSecondaryMajor" 
-                        placeholder="请先选择一级专业"
-                        :disabled="!selectedPrimaryMajor"
-                        @change="handleSecondaryMajorChange"
-                        style="width: 100%;"
-                        clearable
-                        filterable
-                      >
-                        <el-option
-                          v-for="major in validSecondaryMajors"
-                          :key="major.id"
-                          :label="major.sub_major_name"
-                          :value="major.sub_major_code"
-                        />
-                      </el-select>
-                      <div v-if="selectedPrimaryMajor && validSecondaryMajors.length === 0" style="color: #909399; font-size: 12px; margin-top: 4px;">
-                        该一级专业下暂无二级专业
+                <div class="equipment-list-container">
+                  <div v-if="materialSearchLoading" class="loading-container">
+                    <el-skeleton :rows="5" animated />
+                  </div>
+                  
+                  <div v-else class="equipment-list">
+                    <div 
+                      v-for="material in searchedMaterials" 
+                      :key="material.id"
+                      class="equipment-item"
+                      @dblclick="selectMaterial(material)"
+                    >
+                      <div class="equipment-name-spec">
+                        <span class="equipment-name">{{ material.material_name }}</span>
+                        <span class="equipment-spec">{{ material.material_specification ? `(${material.material_specification})` : '' }}</span>
                       </div>
-                    </el-form-item>
+                      <div class="equipment-major">{{ material.material_code }} {{ material.major_name ? `(${material.major_name}` : '' }}{{ material.equipment_name ? `-${material.equipment_name})` : (material.major_name ? ')' : '') }}</div>
+                    </div>
                     
-                    <el-form-item label="推荐编码">
-                      <el-input 
-                        v-model="recommendedMaterialCode" 
-                        placeholder="请选择两级专业后生成"
-                        readonly
-                        style="width: 100%;"
-                      />
-                    </el-form-item>
-                  </el-form>
+                    <div v-if="searchedMaterials.length === 0" class="empty-state">
+                      <el-empty description="暂无器材数据" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="equipment-pagination" v-if="materialTotal > 0">
+                  <el-pagination
+                    v-model:current-page="materialSearchParams.page"
+                    v-model:page-size="materialSearchParams.page_size"
+                    :total="materialTotal"
+                    :page-sizes="[10, 20, 50]"
+                    layout="prev, pager, next, sizes"
+                    small
+                    @size-change="handleMaterialSearch"
+                    @current-change="handleMaterialSearch"
+                  />
+                </div>
+              </div>
+              
+              <!-- 器材编码推荐面板 -->
+                <div v-show="showMaterialCodePanel">
+                  <div class="equipment-search-header">
+                    <div class="header-row">
+                      <h4>器材编码推荐</h4>
+                      <div class="search-controls">
+                        <el-input
+                          v-model="materialCodeSearchParams.search"
+                          placeholder="搜索专业名称或描述"
+                          clearable
+                          style="width: 150px;"
+                          @input="handleMaterialCodeSearch"
+                          @clear="handleMaterialCodeSearch"
+                        />
+
+                      </div>
+                    </div>
+                  </div>
+                
+                <!-- 专业选择区域 -->
+                <div class="material-code-level-list-container">                
+                  <div v-if="materialCodeLevelLoading" class="loading-container">
+                    <el-skeleton :rows="5" animated />
+                  </div>
+                  
+                  <div v-else class="material-code-level-list" style="max-height: 200px; overflow-y: auto;">
+                    <div v-if="filteredMaterialCodeLevels.length === 0" class="empty-state">
+                      <el-empty description="暂无专业数据" />
+                    </div>
+                    
+                    <div v-else class="material-code-level-items">
+                      <div 
+                        v-for="level in filteredMaterialCodeLevels" 
+                        :key="level.id"
+                        class="material-code-level-item"
+                        :class="{ 'selected': selectedMaterialCodeLevel?.id === level.id }"
+                        @click="selectMaterialCodeLevel(level)"
+                      >
+                        <div class="level-info">
+                          <div class="level-name-code">
+                            <span class="level-name">{{ level.sub_major_name }}</span>
+                            <span class="level-code">({{ level.sub_major_code }})</span>
+                          </div>
+                          <div class="major-info">
+                            {{ level.major_name }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 专业选择下拉列表 -->
+                <div class="professional-selection-container">
+                  <div class="professional-selection-header">
+                    <h4>专业选择</h4>
+                  </div>
+                  
+                  <div class="professional-selection-form">
+                    <el-form label-width="80px">
+                      <el-form-item label="一级专业">
+                        <el-select 
+                          v-model="selectedPrimaryMajor" 
+                          placeholder="请选择一级专业"
+                          @change="handlePrimaryMajorChange"
+                          style="width: 100%;"
+                          clearable
+                          filterable
+                        >
+                          <el-option
+                            v-for="major in validPrimaryMajors"
+                            :key="major.id"
+                            :label="major.major_name"
+                            :value="major.major_code"
+                          />
+                        </el-select>
+                      </el-form-item>
+                      
+                      <el-form-item label="二级专业">
+                        <el-select 
+                          v-model="selectedSecondaryMajor" 
+                          placeholder="请先选择一级专业"
+                          :disabled="!selectedPrimaryMajor"
+                          @change="handleSecondaryMajorChange"
+                          style="width: 100%;"
+                          clearable
+                          filterable
+                        >
+                          <el-option
+                            v-for="major in validSecondaryMajors"
+                            :key="major.id"
+                            :label="major.sub_major_name"
+                            :value="major.sub_major_code"
+                          />
+                        </el-select>
+                        <div v-if="selectedPrimaryMajor && validSecondaryMajors.length === 0" style="color: #909399; font-size: 12px; margin-top: 4px;">
+                          该一级专业下暂无二级专业
+                        </div>
+                      </el-form-item>
+                      
+                      <el-form-item label="推荐编码">
+                        <el-input 
+                          v-model="recommendedMaterialCode" 
+                          placeholder="请选择两级专业后生成"
+                          readonly
+                          style="width: 100%;"
+                        />
+                      </el-form-item>
+                    </el-form>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      <template #footer>
-        <div class="base-drawer-footer">
-          <el-button @click="dialogVisible = false" class="base-button">取消</el-button>
+        
+        <template #footer>
+          <div class="base-drawer-footer">
+            <el-button @click="dialogVisible = false" class="base-button">取消</el-button>
 
-          <el-button type="primary" @click="handleSubmit" :loading="dialogLoading" class="base-button">
-            确定
-          </el-button>
-        </div>
-      </template>
-    </el-drawer>
+            <el-button type="primary" @click="handleSubmit" :loading="dialogLoading" class="base-button">
+              确定
+            </el-button>
+          </div>
+        </template>
+      </el-drawer>
 
-    <!-- 添加专业描述对话框 -->
-    <AddDescriptionDialog
-          ref="addDescriptionDialogRef"
-          :material-name="form.material_name"
-          :search-text="materialCodeSearchParams.search"
-          @success="handleAddDescriptionSuccess"
-          @close="handleAddDescriptionDialogClose"
-        />
+      <!-- 添加专业描述对话框 -->
+      <AddDescriptionDialog
+            ref="addDescriptionDialogRef"
+            :material-name="form.material_name"
+            :search-text="materialCodeSearchParams.search"
+            @success="handleAddDescriptionSuccess"
+            @close="handleAddDescriptionDialogClose"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick, computed, watch } from 'vue';
+import { ref, reactive, onMounted, nextTick, computed, watch, inject, type Ref } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
 import { 
   Plus, 
   Refresh, 
-  Search, 
   List, 
   Edit, 
   Delete
@@ -677,6 +699,31 @@ const selectedMaterialCodeLevel = ref<MajorResponse | SubMajorResponse | null>(n
 
 // 添加专业描述相关变量
 const addDescriptionDialogRef = ref();
+
+// 权限检查相关
+const currentUser = inject<Ref<any | null>>('currentUser') || ref<any | null>(null)
+
+/**
+ * 检查当前用户是否拥有指定权限
+ * @param permission 权限名称字符串，如 'BASE-read', 'BASE-edit'
+ * @returns boolean - 用户是否拥有该权限
+ */
+const hasPermission = (permission: string): boolean => {
+  if (!currentUser.value || !currentUser.value.permissions) {
+    // 如果没有用户信息或权限信息，尝试从localStorage获取
+    const userData = localStorage.getItem('userData')
+    if (userData) {
+      try {
+        const parsedUserData = JSON.parse(userData)
+        return parsedUserData.permissions?.includes(permission) || false
+      } catch (err) {
+        console.error('解析用户数据失败:', err)
+      }
+    }
+    return false
+  }
+  return currentUser.value.permissions.includes(permission)
+}
 
 const materialCodeSearchParams = reactive({
   search: '',
@@ -874,6 +921,7 @@ const selectEquipment = (equipment: Equipment) => {
 // 清除装备选择
 const clearEquipmentSelection = () => {
   form.equipment_id = undefined;
+  form.major_id = undefined;
 };
 
 // 刷新页面数据
@@ -977,6 +1025,10 @@ const handleSelectionChange = (selection: MaterialResponse[]) => {
 
 // 新增器材
 const handleCreate = () => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有创建器材的权限');
+    return;
+  }
   dialogTitle.value = '新增器材';
   
   // 检查是否是同一个菜单类型
@@ -1016,6 +1068,10 @@ const handleCreate = () => {
 
 // 编辑器材
 const handleEdit = (row: MaterialResponse) => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有编辑器材的权限');
+    return;
+  }
   dialogTitle.value = '编辑器材';
   
   // 检查是否是同一个菜单类型
@@ -1066,6 +1122,10 @@ const handleEdit = (row: MaterialResponse) => {
 
 // 删除器材
 const handleDelete = async (row: MaterialResponse) => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有删除器材的权限');
+    return;
+  }
   try {
     await ElMessageBox.confirm(`确定要删除器材"${row.material_name}"吗？`, '提示', {
       confirmButtonText: '确定',
@@ -1073,8 +1133,10 @@ const handleDelete = async (row: MaterialResponse) => {
       type: 'warning'
     });
     
-    await materialAPI.deleteMaterial(row.id);
-    ElMessage.success('删除成功');
+    await materialAPI.deleteMaterial(row.id)
+    ElMessage.success('删除成功')
+    // 删除后清除所有选中状态，让用户重新选择
+    selectedIds.value = []
     getMaterialList();
   } catch (error) {
     // 用户取消删除
@@ -1083,6 +1145,10 @@ const handleDelete = async (row: MaterialResponse) => {
 
 // 批量删除
 const handleBatchDelete = async () => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有批量删除器材的权限');
+    return;
+  }
   if (selectedIds.value.length === 0) return;
   
   try {
@@ -1135,25 +1201,46 @@ const handleSubmit = async () => {
     if (dialogTitle.value === '新增器材') {
       const createData: MaterialCreate = {
         material_code: form.material_code,
-        material_name: form.material_name,
-        material_specification: form.material_specification || undefined,
-        material_desc: form.material_desc || undefined,
-        material_wdh: form.material_wdh || undefined,
-        safety_stock: form.safety_stock || undefined,
-        equipment_id: form.equipment_id
+        material_name: form.material_name
       };
+      
+      // 只有当字段有实际值时才包含可选字段
+      if (form.material_specification) {
+        createData.material_specification = form.material_specification;
+      }
+      if (form.material_desc) {
+        createData.material_desc = form.material_desc;
+      }
+      if (form.material_wdh) {
+        createData.material_wdh = form.material_wdh;
+      }
+      if (form.safety_stock !== undefined && form.safety_stock !== null) {
+        createData.safety_stock = form.safety_stock;
+      }
+      // 只有当equipment_id有值时才包含该字段
+      if (form.equipment_id !== undefined && form.equipment_id !== null) {
+        createData.equipment_id = form.equipment_id;
+      }
+      
+      console.log('提交的创建数据:', createData);
       await materialAPI.createMaterial(createData);
       ElMessage.success('新增成功');
     } else {
       const updateData: MaterialUpdate = {
         material_code: form.material_code,
-        material_name: form.material_name,
-        material_specification: form.material_specification || undefined,
-        material_desc: form.material_desc || undefined,
-        material_wdh: form.material_wdh || undefined,
-        safety_stock: form.safety_stock || undefined,
-        equipment_id: form.equipment_id
+        material_name: form.material_name
       };
+      
+      // 包含所有可选字段，即使为空值也要发送给后端
+      updateData.material_specification = form.material_specification;
+      updateData.material_desc = form.material_desc;
+      updateData.material_wdh = form.material_wdh;
+      updateData.safety_stock = form.safety_stock;
+      
+      // 始终包含equipment_id字段，即使为undefined或null
+      updateData.equipment_id = form.equipment_id;
+      
+      console.log('提交的更新数据:', updateData);
       await materialAPI.updateMaterial(form.id, updateData);
       ElMessage.success('更新成功');
     }

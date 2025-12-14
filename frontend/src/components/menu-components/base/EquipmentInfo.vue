@@ -1,10 +1,29 @@
 <template>
   <div class="base-management-container">
+    <!-- 权限检查 -->
+    <el-alert
+      v-if="!hasPermission('BASE-read')"
+      title="权限不足"
+      type="error"
+      :closable="false"
+      show-icon
+      class="base-permission-alert"
+    >
+      <template #default>
+        <p>您没有足够的权限访问装备管理功能。</p>
+        <p>需要权限：<el-tag type="danger">BASE-read</el-tag></p>
+        <p>请与管理员联系以获取相应权限。</p>
+      </template>
+    </el-alert>
+
+    <!-- 装备管理内容 -->
+    <div v-else class="base-content">
     <!-- 操作栏 -->
     <el-card class="base-operation-card" shadow="hover">
       <div class="base-operation-bar">
         <div class="base-operation-bar__left">
           <el-button 
+            v-if="hasPermission('BASE-edit')"
             type="primary" 
             @click="handleCreate"
             :icon="Plus"
@@ -21,7 +40,7 @@
           </el-button>
           <!-- 批量删除按钮 -->
           <el-button 
-            v-if="selectedIds.length > 0"
+            v-if="hasPermission('BASE-edit') && selectedIds.length > 0"
             type="danger" 
             @click="handleBatchDelete" 
             :icon="Delete"
@@ -151,27 +170,29 @@
               </el-text>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="120" align="center" fixed="right">
+          <el-table-column label="操作" width="120" align="center" fixed="right" v-if="hasPermission('BASE-edit')">
             <template #default="{ row }">
               <div class="base-action-buttons">
-                <ActionTooltip content="编辑装备">
-                  <el-button 
-                    type="primary"
-                    size="small"
-                    @click="handleEdit(row)"
-                    :icon="Edit"
-                    class="base-button-circle"
-                  />
-                </ActionTooltip>
-                <ActionTooltip content="删除装备">
-                  <el-button 
-                    type="danger"
-                    size="small"
-                    @click="handleDelete(row)"
-                    :icon="Delete"
-                    class="base-button-circle"
-                  />
-                </ActionTooltip>
+                <template v-if="hasPermission('BASE-edit')">
+                  <ActionTooltip content="编辑装备">
+                    <el-button 
+                      type="primary"
+                      size="small"
+                      @click="handleEdit(row)"
+                      :icon="Edit"
+                      class="base-button-circle"
+                    />
+                  </ActionTooltip>
+                  <ActionTooltip content="删除装备">
+                    <el-button 
+                      type="danger"
+                      size="small"
+                      @click="handleDelete(row)"
+                      :icon="Delete"
+                      class="base-button-circle"
+                    />
+                  </ActionTooltip>
+                </template>
               </div>
             </template>
           </el-table-column>
@@ -246,11 +267,12 @@
         </div>
       </template>
     </el-drawer>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick } from 'vue';
+import { ref, reactive, onMounted, nextTick, inject, type Ref } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
 import { 
   Plus, 
@@ -277,6 +299,30 @@ const dialogTitle = ref('');
 const formRef = ref<FormInstance>();
 const tableRef = ref(); // 添加表格引用
 const selectedIds = ref<number[]>([]);
+
+const currentUser = inject<Ref<any | null>>('currentUser') || ref<any | null>(null)
+
+/**
+ * 检查当前用户是否拥有指定权限
+ * @param permission 权限名称字符串，如 'BASE-read', 'BASE-edit'
+ * @returns boolean - 用户是否拥有该权限
+ */
+const hasPermission = (permission: string): boolean => {
+  if (!currentUser.value || !currentUser.value.permissions) {
+    // 如果没有用户信息或权限信息，尝试从localStorage获取
+    const userData = localStorage.getItem('userData')
+    if (userData) {
+      try {
+        const parsedUserData = JSON.parse(userData)
+        return parsedUserData.permissions?.includes(permission) || false
+      } catch (err) {
+        console.error('解析用户数据失败:', err)
+      }
+    }
+    return false
+  }
+  return currentUser.value.permissions.includes(permission)
+}
 
 const queryParams = reactive<EquipmentQueryParams>({
   page: 1,
@@ -314,6 +360,7 @@ const majors = ref<Major[]>([]);
 
 // 获取装备列表
 const getEquipmentList = async () => {
+  if (!hasPermission('BASE-read')) return;
   loading.value = true;
   try {
     const response = await equipmentApi.getEquipments(queryParams);
@@ -341,6 +388,7 @@ const restoreSortState = () => {
 
 // 获取专业列表
 const getMajorList = async () => {
+  if (!hasPermission('BASE-read')) return;
   try {
     const response = await majorAPI.getMajors();
     majors.value = response.data;
@@ -420,6 +468,10 @@ const handleSelectionChange = (selection: Equipment[]) => {
 
 // 新增装备
 const handleCreate = () => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有新增装备的权限')
+    return
+  }
   dialogTitle.value = '新增装备';
   
   // 检查是否是同一个菜单类型
@@ -443,6 +495,10 @@ const handleCreate = () => {
 
 // 编辑装备
 const handleEdit = (row: Equipment) => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有编辑装备的权限')
+    return
+  }
   dialogTitle.value = '编辑装备';
   
   // 检查是否是同一个菜单类型
@@ -476,6 +532,10 @@ const handleEdit = (row: Equipment) => {
 
 // 删除装备
 const handleDelete = async (row: Equipment) => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有删除装备的权限')
+    return
+  }
   try {
     await ElMessageBox.confirm(
       `确定要删除装备"${row.equipment_name}"吗？此操作不可恢复。`,
@@ -489,6 +549,8 @@ const handleDelete = async (row: Equipment) => {
     
     await equipmentApi.deleteEquipment(row.id);
     ElMessage.success('删除成功');
+    // 删除后清除所有选中状态，让用户重新选择
+    selectedIds.value = [];
     getEquipmentList();
   } catch (error) {
     if (error !== 'cancel') {
@@ -499,6 +561,10 @@ const handleDelete = async (row: Equipment) => {
 
 // 批量删除
 const handleBatchDelete = async () => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有批量删除装备的权限')
+    return
+  }
   if (selectedIds.value.length === 0) {
     ElMessage.warning('请先选择要删除的装备');
     return;

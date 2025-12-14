@@ -32,17 +32,26 @@ def validate_sub_major_code_format(code: str):
 def generate_sub_major_code(sub_major_name: str) -> str:
     """
     根据二级专业名称自动生成专业代码
-    - 取二级专业名称前两个字符，不足2个用0补充
+    - 取二级专业名称前两个首字母，不足2个用0补充
     """
-    # 获取前两个字符
-    code = sub_major_name[:2]
+    # 提取中文字符的首字母拼音
+    import pypinyin
     
-    # 如果字符不足2个，用0补充
-    if len(code) < 2:
-        code = code.ljust(2, '0')
+    # 获取每个字符的首字母拼音
+    pinyin_list = pypinyin.lazy_pinyin(sub_major_name, style=pypinyin.STYLE_FIRST_LETTER)
     
-    # 转换为大写
-    code = code.upper()
+    # 合并所有首字母
+    initials = ''.join(pinyin_list)
+    
+    # 只保留字母，过滤掉非字母字符
+    letters = ''.join(filter(str.isalpha, initials))
+    
+    # 如果字母不足2个，用0补充
+    if len(letters) < 2:
+        letters = letters.ljust(2, '0')
+    
+    # 取前两个字母并转换为大写
+    code = letters[:2].upper()
     
     return code
 
@@ -152,7 +161,7 @@ async def get_sub_major_statistics(
         raise HTTPException(status_code=500, detail="获取二级专业统计信息失败")
 
 # 创建二级专业
-@sub_major_router.post("/", response_model=SubMajorResponse)
+@sub_major_router.post("", response_model=SubMajorResponse)
 async def create_sub_major(
     sub_major_data: SubMajorCreate,
     db: Session = Depends(get_db),

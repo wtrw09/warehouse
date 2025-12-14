@@ -176,7 +176,7 @@ def get_material_code_level_statistics(
     )
 
 # 数据操作类路由
-@material_code_level_router.post("/", response_model=MaterialCodeLevelResponse)
+@material_code_level_router.post("", response_model=MaterialCodeLevelResponse)
 def create_material_code_level(
     material_code_level: MaterialCodeLevelCreate,
     db: Session = Depends(get_db),
@@ -252,7 +252,7 @@ def update_material_code_level(
             material_code_level_update.code = generate_professional_code(level_name)
     
     # 更新字段
-    update_data = material_code_level_update.dict(exclude_unset=True)
+    update_data = material_code_level_update.model_dump(exclude_unset=True)
     if update_data:
         # 如果更新了描述字段，验证格式
         if 'description' in update_data:

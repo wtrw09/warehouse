@@ -18,7 +18,7 @@ class ServerConfig:
             "port": 8000,
             "log_level": "info",
             "reload": False,
-            "workers": 4,
+            "workers": 1,
             "access_log": True
         }
         

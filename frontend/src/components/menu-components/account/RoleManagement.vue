@@ -24,7 +24,7 @@
             <el-button 
               type="primary" 
               @click="handleCreate"
-              :disabled="!hasAuthEditPermission"
+              v-if="hasAuthEditPermission"
               :icon="Plus"
             >
               新增角色
@@ -143,7 +143,7 @@
             
 
             
-            <el-table-column label="操作" width="120" align="center" fixed="right">
+            <el-table-column label="操作" width="120" align="center" fixed="right" v-if="hasAuthEditPermission">
               <template #default="{ row }">
                 <el-space>
                   <el-tooltip content="编辑角色" placement="top">

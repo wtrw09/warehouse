@@ -23,9 +23,9 @@
         <div class="base-operation-bar">
           <div class="base-operation-bar__left">
             <el-button 
+              v-if="hasPermission('BASE-edit')"
               type="primary" 
               @click="handleCreate"
-              :disabled="!hasPermission('BASE-edit')"
               :icon="Plus"
               class="base-button"
             >
@@ -34,18 +34,18 @@
             
             <!-- 导入相关按钮 -->
             <el-button 
+              v-if="hasPermission('BASE-edit')"
               type="success" 
               @click="handleImport"
-              :disabled="!hasPermission('BASE-edit')"
               :icon="Upload"
               class="base-button"
             >
               导入客户数据
             </el-button>
             <el-button 
+              v-if="hasPermission('BASE-edit')"
               type="info" 
               @click="handleDownloadTemplate"
-              :disabled="!hasPermission('BASE-edit')"
               :icon="Download"
               class="base-button"
             >
@@ -197,29 +197,29 @@
                 </template>
               </el-table-column>
               
-              <el-table-column label="操作" width="120" align="center" fixed="right">
+              <el-table-column label="操作" width="120" align="center" fixed="right" v-if="hasPermission('BASE-edit')">
                 <template #default="{ row }">
                   <div class="base-action-buttons">
-                    <ActionTooltip content="编辑客户" :disabled="!hasPermission('BASE-edit')">
-                      <el-button 
-                        type="primary"
-                        size="small"
-                        @click="handleEdit(row)"
-                        :disabled="!hasPermission('BASE-edit')"
-                        :icon="Edit"
-                        class="base-button-circle"
-                      />
-                    </ActionTooltip>
-                    <ActionTooltip content="删除客户" :disabled="!hasPermission('BASE-edit')">
-                      <el-button 
-                        type="danger"
-                        size="small"
-                        @click="handleDelete(row)"
-                        :disabled="!hasPermission('BASE-edit')"
-                        :icon="Delete"
-                        class="base-button-circle"
-                      />
-                    </ActionTooltip>
+                    <template v-if="hasPermission('BASE-edit')">
+                      <ActionTooltip content="编辑客户">
+                        <el-button 
+                          type="primary"
+                          size="small"
+                          @click="handleEdit(row)"
+                          :icon="Edit"
+                          class="base-button-circle"
+                        />
+                      </ActionTooltip>
+                      <ActionTooltip content="删除客户">
+                        <el-button 
+                          type="danger"
+                          size="small"
+                          @click="handleDelete(row)"
+                          :icon="Delete"
+                          class="base-button-circle"
+                        />
+                      </ActionTooltip>
+                    </template>
                   </div>
                 </template>
               </el-table-column>
@@ -662,6 +662,8 @@ const handleDelete = async (customer: CustomerResponse) => {
 
     await customerAPI.deleteCustomer(customer.id)
     ElMessage.success('删除成功')
+    // 删除后清除所有选中状态，让用户重新选择
+    selectedCustomers.value = []
     refreshCustomers()
   } catch (err) {
     if (err !== 'cancel') {

@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Security
-from fastapi import APIRouter
 from database import get_db
 # 导入角色管理路由
 from routes.account.role_routes import role_router

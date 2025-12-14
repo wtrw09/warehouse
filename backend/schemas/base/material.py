@@ -23,6 +23,7 @@ class MaterialUpdate(BaseModel):
     material_wdh: Optional[str] = None
     safety_stock: Optional[int] = None
     material_query_code: Optional[str] = None  # 用户可选的查询码字段
+    major_id: Optional[int] = None
     equipment_id: Optional[int] = None
 
 # 器材响应模式

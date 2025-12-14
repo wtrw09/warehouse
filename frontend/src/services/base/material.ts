@@ -45,7 +45,7 @@ export const materialAPI = {
    * 创建器材
    */
   async createMaterial(data: MaterialCreate): Promise<MaterialResponse> {
-    const response = await api.post<MaterialResponse>('/materials/', data);
+    const response = await api.post<MaterialResponse>('/materials', data);
     return response.data;
   },
 

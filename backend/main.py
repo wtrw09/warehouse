@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.all_routes import router
 from database import get_engine, get_db
-import uvicorn
 from contextlib import asynccontextmanager
 
 from initialize.initialize_system import initialize_all, is_system_initialized

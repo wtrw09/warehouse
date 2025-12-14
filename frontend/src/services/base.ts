@@ -31,7 +31,7 @@ const getServerBaseURL = (): string => {
   // 生产环境，强制使用 Nginx 代理
   if (!isDevelopment) {
     console.log('[BaseURL] 生产环境，使用 /api 代理', { hostname: window.location.hostname, port: window.location.port });
-    return '/api';
+    return '/api'; // 生产环境返回 /api，通过 nginx 代理访问后端
   }
   
   // 开发环境下，从本地存储读取配置
@@ -136,17 +136,9 @@ api.interceptors.response.use(
     if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
       console.error('服务器连接失败:', error.message);
       
-      // 检查当前是否在登录页面，如果不是则跳转到登录页面
-      if (!window.location.pathname.includes('/login')) {
-        // 清除token
-        localStorage.removeItem('token');
-        
-        // 显示服务器异常提示
-        ElMessage.error('服务器连接异常，请检查服务器状态后重新登录');
-        
-        // 跳转到登录页面
-        router.push('/login');
-      }
+      // 只显示错误提示，不清除token，不跳转登录页
+      // 网络错误可能是临时的，不应该强制用户退出登录
+      ElMessage.error('网络连接失败，请检查网络或稍后重试');
       
       return Promise.reject(error);
     }
@@ -155,16 +147,38 @@ api.interceptors.response.use(
     if (error.response?.status >= 500) {
       console.error('服务器内部错误:', error.response?.status, error.response?.data);
       
-      // 检查当前是否在登录页面，如果不是则跳转到登录页面
-      if (!window.location.pathname.includes('/login')) {
+      // 检查是否应该本地处理错误（不显示全局错误消息）
+      const handleErrorLocally = error.config?.headers?.['x-handle-error-locally'] === 'true';
+      
+      // 检查错误类型，只对特定的认证相关错误进行退出处理
+      const errorDetail = error.response?.data?.detail || '';
+      const errorCode = error.response?.headers?.['x-error-code'] || '';
+      
+      // 只有认证相关的500错误才需要退出登录
+      const isAuthError = errorDetail.includes('认证') || 
+                         errorDetail.includes('token') || 
+                         errorDetail.includes('session') ||
+                         errorDetail.includes('用户') ||
+                         errorDetail.includes('登录') ||
+                         errorDetail.includes('密码') ||
+                         errorDetail.includes('令牌') ||
+                         errorCode.includes('AUTH') ||
+                         errorCode.includes('SESSION') ||
+                         errorCode.includes('TOKEN') ||
+                         errorCode.includes('USER');
+      
+      if (isAuthError && !window.location.pathname.includes('/login')) {
         // 清除token
         localStorage.removeItem('token');
         
-        // 显示服务器异常提示
-        ElMessage.error('服务器内部错误，请稍后重试或联系管理员');
+        // 显示认证错误提示
+        ElMessage.error('认证错误，请重新登录');
         
         // 跳转到登录页面
         router.push('/login');
+      } else if (!handleErrorLocally) {
+        // 只有在不需要本地处理错误的情况下，才显示全局错误消息
+        ElMessage.error('服务器内部错误，请稍后重试或联系管理员');
       }
       
       return Promise.reject(error);

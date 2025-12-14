@@ -99,6 +99,12 @@ async def login_user(
             user_agent=user_agent
         )
         
+        # 调试：打印会话创建信息
+        print(f"[DEBUG] 登录接口 - 会话创建: user_id={user.username}, redis_available={redis_available}")
+        # 尝试获取会话以验证
+        session_data = await session_manager.get_session(user.username)
+        print(f"[DEBUG] 登录接口 - 获取会话数据: {session_data}")
+        
         # 如果Redis不可用，在响应中添加提醒信息
         if not redis_available:
             response_data["redis_unavailable"] = True
@@ -151,11 +157,15 @@ async def refresh_token(
     
     # 检查Redis会话状态（仅滑动会话模式需要）
     if auth_strategy == "sliding_session":
+        # 调试：打印验证前的信息
+        print(f"[DEBUG] refresh_token - 开始验证会话: username={username}, auth_strategy={auth_strategy}")
         # 检查会话是否有效
         is_valid = await session_manager.is_session_valid(username)
+        print(f"[DEBUG] refresh_token - is_session_valid结果: {is_valid}")
         if not is_valid:
             # 检查会话是否存在
             session_data = await session_manager.get_session(username)
+            print(f"[DEBUG] refresh_token - 获取会话数据: {session_data}")
             if session_data is None:
                 error_detail = "会话不存在，可能已超时或用户已登出"
                 error_code = "SESSION_NOT_FOUND"
@@ -174,6 +184,7 @@ async def refresh_token(
         
         # 更新最后活动时间
         await session_manager.update_last_activity(username)
+        print(f"[DEBUG] refresh_token - 已更新最后活动时间")
     
     # 获取用户信息
     user = db.exec(select(User).join(Role).where(User.username == username)).first()

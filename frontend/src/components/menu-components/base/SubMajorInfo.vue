@@ -25,7 +25,7 @@
             <el-button 
               type="primary" 
               @click="handleCreate"
-              :disabled="!hasPermission('BASE-edit')"
+              v-if="hasPermission('BASE-edit')"
               :icon="Plus"
             >
               新增二级专业
@@ -192,32 +192,31 @@
               width="120" 
               align="center" 
               fixed="right"
+              v-if="hasPermission('BASE-edit')"
             >
               <template #default="{ row }">
                 <div class="base-action-buttons">
                   <ActionTooltip 
-                    content="编辑二级专业" 
-                    :disabled="!hasPermission('BASE-edit')"
+                    content="编辑二级专业"
                   >
                     <el-button 
                       type="primary" 
                       size="small" 
                       @click="handleEdit(row)"
-                      :disabled="!hasPermission('BASE-edit')"
+                      v-if="hasPermission('BASE-edit')"
                       :icon="Edit"
                       class="base-button-circle"
                     />
                   </ActionTooltip>
                   
                   <ActionTooltip 
-                    content="删除二级专业" 
-                    :disabled="!hasPermission('BASE-edit')"
+                    content="删除二级专业"
                   >
                     <el-button 
                       type="danger" 
                       size="small" 
                       @click="handleDelete(row)"
-                      :disabled="!hasPermission('BASE-edit')"
+                      v-if="hasPermission('BASE-edit')"
                       :icon="Delete"
                       class="base-button-circle"
                     />
@@ -287,39 +286,41 @@
             </el-form-item>
             
             <el-form-item label="描述">
-              <div class="description-tags-container">
-                <div class="description-tags-list">
-                  <el-tag
-                    v-for="(desc, index) in descriptionTags"
-                    :key="index"
-                    size="small"
-                    closable
-                    @close="removeDescriptionTagFromForm(index)"
-                    style="margin-right: 8px; margin-bottom: 8px;"
-                  >
-                    {{ desc }}
-                  </el-tag>
+              <el-tooltip content="添加描述后，可以在添加器材时快速检索到专业" placement="bottom">
+                <div class="description-tags-container">
+                  <div class="description-tags-list">
+                    <el-tag
+                      v-for="(desc, index) in descriptionTags"
+                      :key="index"
+                      size="small"
+                      closable
+                      @close="removeDescriptionTagFromForm(index)"
+                      style="margin-right: 8px; margin-bottom: 8px;"
+                    >
+                      {{ desc }}
+                    </el-tag>
+                  </div>
+                  <div class="description-input-container">
+                    <el-input
+                      v-model="newDescriptionInput"
+                      placeholder="输入描述内容，按回车添加"
+                      size="small"
+                      style="width: 200px;"
+                      @keyup.enter="addDescriptionTag"
+                      maxlength="50"
+                      show-word-limit
+                    />
+                    <el-button 
+                      type="primary" 
+                      size="small" 
+                      @click="addDescriptionTag"
+                      style="margin-left: 8px;"
+                    >
+                      添加
+                    </el-button>
+                  </div>
                 </div>
-                <div class="description-input-container">
-                  <el-input
-                    v-model="newDescriptionInput"
-                    placeholder="输入描述内容，按回车添加"
-                    size="small"
-                    style="width: 200px;"
-                    @keyup.enter="addDescriptionTag"
-                    maxlength="50"
-                    show-word-limit
-                  />
-                  <el-button 
-                    type="primary" 
-                    size="small" 
-                    @click="addDescriptionTag"
-                    style="margin-left: 8px;"
-                  >
-                    添加
-                  </el-button>
-                </div>
-              </div>
+              </el-tooltip>
             </el-form-item>
           </el-form>
           
@@ -358,7 +359,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Refresh, Delete, Search, List, Edit, QuestionFilled } from '@element-plus/icons-vue';
+import { Plus, Refresh, Delete, List, Edit, QuestionFilled } from '@element-plus/icons-vue';
 import { subMajorAPI } from '../../../services/base/sub_major';
 import { majorAPI } from '../../../services/base/major';
 import { usePermission } from '../../../composables/usePermission';
@@ -563,6 +564,10 @@ const handleDelete = async (row: SubMajorResponse) => {
     deleting.value = true;
     await subMajorAPI.deleteSubMajor(row.id);
     ElMessage.success('删除成功');
+    
+    // 删除后清除所有选中状态，让用户重新选择
+    selectedSubMajors.value = [];
+    
     refreshSubMajors();
   } catch (error) {
     if (error !== 'cancel') {

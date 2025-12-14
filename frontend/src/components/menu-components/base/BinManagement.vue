@@ -1,12 +1,30 @@
 <template>
   <div class="base-management-container">
+    <!-- 权限检查 -->
+    <el-alert
+      v-if="!hasPermission('BASE-read')"
+      title="权限不足"
+      type="error"
+      :closable="false"
+      show-icon
+      class="base-permission-alert"
+    >
+      <template #default>
+        <p>您没有足够的权限访问货位管理功能。</p>
+        <p>需要权限：<el-tag type="danger">BASE-read</el-tag></p>
+        <p>请与管理员联系以获取相应权限。</p>
+      </template>
+    </el-alert>
+
     <!-- 操作栏 -->
+    <div v-else>
     <el-card class="base-operation-card" shadow="hover">
       <div class="base-operation-bar">
         <div class="base-operation-bar__left">
           <el-button 
             type="primary" 
             @click="handleCreate"
+            v-if="hasPermission('BASE-edit')"
             :icon="Plus"
           >
             新增货位
@@ -21,7 +39,7 @@
           </el-button>
           <!-- 批量删除按钮 -->
           <el-button 
-            v-if="selectedIds.length > 0"
+            v-if="hasPermission('BASE-edit') && selectedIds.length > 0"
             type="danger" 
             @click="handleBatchDelete" 
             :icon="Delete"
@@ -169,7 +187,7 @@
             :sort-orders="['ascending', 'descending']"
           />
           <el-table-column prop="creator" label="创建人" width="100" align="center" />
-          <el-table-column label="操作" width="120" align="center" fixed="right">
+          <el-table-column label="操作" width="120" align="center" fixed="right" v-if="hasPermission('BASE-edit')">
             <template #default="{ row }">
               <div class="base-action-buttons">
                 <ActionTooltip content="编辑货位">
@@ -277,10 +295,11 @@
       </template>
     </el-drawer>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick } from 'vue';
+import { ref, reactive, onMounted, nextTick, inject, type Ref } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
 import { 
   Plus, 
@@ -293,6 +312,30 @@ import { binApi } from '@/services/base/bin';
 import { warehouseAPI } from '@/services/base/warehouse';
 import type { Bin, BinCreateRequest, BinUpdateRequest, BinQueryParams } from '@/services/types';
 import ActionTooltip from './ActionTooltip.vue';
+
+const currentUser = inject<Ref<any | null>>('currentUser') || ref<any | null>(null);
+
+/**
+ * 检查当前用户是否拥有指定权限
+ * @param permission 权限名称字符串，如 'BASE-read', 'BASE-edit'
+ * @returns boolean - 用户是否拥有该权限
+ */
+const hasPermission = (permission: string): boolean => {
+  if (!currentUser.value || !currentUser.value.permissions) {
+    // 如果没有用户信息或权限信息，尝试从localStorage获取
+    const userData = localStorage.getItem('userData')
+    if (userData) {
+      try {
+        const parsedUserData = JSON.parse(userData)
+        return parsedUserData.permissions?.includes(permission) || false
+      } catch (err) {
+        console.error('解析用户数据失败:', err)
+      }
+    }
+    return false
+  }
+  return currentUser.value.permissions.includes(permission)
+};
 
 interface Warehouse {
   id: number;
@@ -318,10 +361,10 @@ const form = reactive({
   id: 0,
   bin_name: '',
   warehouse_id: undefined as number | undefined,
-  bin_size: '',
-  bin_property: '',
+  bin_size: undefined as string | undefined,
+  bin_property: undefined as string | undefined,
   empty_label: true,
-  bar_code: ''
+  bar_code: undefined as string | undefined
 });
 
 // 临时保存的数据
@@ -343,6 +386,7 @@ const binProperties = ref<string[]>(['重型货架', '中型货架', '轻型货�
 
 // 获取货位列表
 const getBinList = async () => {
+  if (!hasPermission('BASE-read')) return
   loading.value = true;
   try {
     const response = await binApi.getBins(queryParams);
@@ -460,6 +504,10 @@ const handleSelectionChange = (selection: Bin[]) => {
 
 // 新增货位
 const handleCreate = () => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有创建货位的权限')
+    return
+  }
   dialogTitle.value = '新增货位';
   
   // 检查是否是同一个菜单类型
@@ -477,10 +525,14 @@ const handleCreate = () => {
 };
 
 // 编辑货位
-const handleEdit = (row: Bin) => {
-  dialogTitle.value = '编辑货位';
-  
-  // 检查是否是同一个菜单类型
+  const handleEdit = (row: Bin) => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有编辑货位的权限')
+    return
+  }
+    dialogTitle.value = '编辑货位';
+    
+    // 检查是否是同一个菜单类型
   if (lastMenuType.value === 'edit' && tempFormData.value) {
     // 恢复之前的数据
     Object.assign(form, tempFormData.value);
@@ -489,10 +541,10 @@ const handleEdit = (row: Bin) => {
       id: row.id,
       bin_name: row.bin_name,
       warehouse_id: row.warehouse_id,
-      bin_size: row.bin_size || '',
-      bin_property: row.bin_property || '',
+      bin_size: row.bin_size || undefined,
+      bin_property: row.bin_property || undefined,
       empty_label: row.empty_label,
-      bar_code: row.bar_code || ''
+      bar_code: row.bar_code || undefined
     });
     // 保存原始数据用于比较
     originalFormData.value = { ...form };
@@ -504,6 +556,10 @@ const handleEdit = (row: Bin) => {
 
 // 删除货位
 const handleDelete = async (row: Bin) => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有删除货位的权限')
+    return
+  }
   try {
     await ElMessageBox.confirm(`确定要删除货位"${row.bin_name}"吗？`, '提示', {
       confirmButtonText: '确定',
@@ -513,6 +569,8 @@ const handleDelete = async (row: Bin) => {
     
     await binApi.deleteBin(row.id);
     ElMessage.success('删除成功');
+    // 删除后清除所有选中状态，让用户重新选择
+    selectedIds.value = [];
     getBinList();
     getBinProperties(); // 新增：刷新货位属性列表
   } catch (error) {
@@ -522,6 +580,10 @@ const handleDelete = async (row: Bin) => {
 
 // 批量删除
 const handleBatchDelete = async () => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有批量删除货位的权限')
+    return
+  }
   if (selectedIds.value.length === 0) return;
   
   try {
@@ -553,10 +615,10 @@ const handleSubmit = async () => {
       const createData: BinCreateRequest = {
         bin_name: form.bin_name,
         warehouse_id: form.warehouse_id!,
-        bin_size: form.bin_size || undefined,
-        bin_property: form.bin_property || undefined,
+        bin_size: form.bin_size?.trim() ?? null, // 将空字符串转换为null
+        bin_property: form.bin_property?.trim() ?? null, // 将空字符串转换为null
         empty_label: form.empty_label,
-        bar_code: form.bar_code || undefined
+        bar_code: form.bar_code?.trim() ?? null // 将空字符串转换为null
       };
       await binApi.createBin(createData);
       ElMessage.success('新增成功');
@@ -564,10 +626,10 @@ const handleSubmit = async () => {
       const updateData: BinUpdateRequest = {
         bin_name: form.bin_name,
         warehouse_id: form.warehouse_id,
-        bin_size: form.bin_size || undefined,
-        bin_property: form.bin_property || undefined,
+        bin_size: form.bin_size?.trim() ?? null, // 将空字符串转换为null
+        bin_property: form.bin_property?.trim() ?? null, // 将空字符串转换为null
         empty_label: form.empty_label,
-        bar_code: form.bar_code || undefined
+        bar_code: form.bar_code?.trim() ?? null // 将空字符串转换为null
       };
       await binApi.updateBin(form.id, updateData);
       ElMessage.success('更新成功');

@@ -24,7 +24,7 @@
             <el-button 
               type="primary" 
               @click="handleCreate"
-              :disabled="!hasAuthEditPermission"
+              v-if="hasAuthEditPermission"
               :icon="Plus"
             >
               新增用户
@@ -40,10 +40,9 @@
             
             <!-- 批量分配角色按钮 -->
             <el-button 
-              v-if="selectedUsers.length > 0"
+              v-if="selectedUsers.length > 0 && hasAuthEditPermission"
               type="warning" 
               @click="handleBatchRole"
-              :disabled="!hasAuthEditPermission"
               :icon="UserFilled"
             >
               批量分配角色 ({{ selectedUsers.length }})
@@ -151,7 +150,7 @@
               </template>
             </el-table-column>
             
-            <el-table-column label="操作" width="160" align="center" fixed="right">
+            <el-table-column label="操作" width="160" align="center" fixed="right" v-if="hasAuthEditPermission">
               <template #default="{ row }">
                 <el-space>
                   <el-tooltip content="编辑用户" placement="top">
@@ -495,28 +494,43 @@ const batchFormRules = {
 // 获取当前用户信息（从父组件注入）
 const currentUser = inject<Ref<UserInfo | null>>('currentUser') || ref<UserInfo | null>(null);
 
-// 计算属性：检查是否有AUTH-read权限
-const hasAuthReadPermission = computed(() => {
+/**
+ * 检查当前用户是否拥有指定权限
+ * @param permission 权限名称字符串，如 'AUTH-read', 'AUTH-edit'
+ * @returns boolean - 用户是否拥有该权限
+ */
+const hasPermission = (permission: string): boolean => {
+  console.log('当前用户:', currentUser.value);
   if (!currentUser.value || !currentUser.value.permissions) {
+    // 如果没有用户信息或权限信息，尝试从localStorage获取
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      try {
+        const parsedUserData = JSON.parse(userData);
+        return parsedUserData.permissions?.includes(permission) || false;
+      } catch (err) {
+        console.error('解析用户数据失败:', err);
+      }
+    }
     return false;
   }
-  return currentUser.value.permissions.includes('AUTH-read');
+  return currentUser.value.permissions.includes(permission);
+};
+
+// 计算属性：检查是否有AUTH-read权限
+const hasAuthReadPermission = computed(() => {
+  return hasPermission('AUTH-read');
 });
 
 // 计算属性：检查是否有AUTH-edit权限
 const hasAuthEditPermission = computed(() => {
-  if (!currentUser.value || !currentUser.value.permissions) {
-    return false;
-  }
-  return currentUser.value.permissions.includes('AUTH-edit');
+  console.log('用户权限:', currentUser.value?.permissions);
+  return hasPermission('AUTH-edit');
 });
 
 // 计算属性：检查是否有AUTH-own权限
 const hasAuthOwnPermission = computed(() => {
-  if (!currentUser.value || !currentUser.value.permissions) {
-    return false;
-  }
-  return currentUser.value.permissions.includes('AUTH-own');
+  return hasPermission('AUTH-own');
 });
 
 // 检查是否可以编辑自己的信息

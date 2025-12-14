@@ -65,8 +65,8 @@ switch ($choice) {
         Write-Host "开始构建 AMD64 镜像..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 使用传统 docker build，指定架构后缀
-        docker build --build-arg NODE_ARCH_SUFFIX=-amd64 --build-arg NGINX_ARCH_SUFFIX=-amd64 -t "$IMAGE_NAME`:$TAG-amd64" .
+        # 使用传统 docker build，指定架构后缀，--no-cache 强制重新构建
+        docker build --no-cache --build-arg NODE_ARCH_SUFFIX=-amd64 --build-arg NGINX_ARCH_SUFFIX=-amd64 -t "$IMAGE_NAME`:$TAG-amd64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -115,8 +115,8 @@ switch ($choice) {
         Write-Host "开始构建 AMD64 镜像..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 使用 buildx 明确指定平台和架构后缀
-        docker buildx build --platform linux/amd64 --build-arg NODE_ARCH_SUFFIX=-amd64 --build-arg NGINX_ARCH_SUFFIX=-amd64 --load -t "$IMAGE_NAME`:$TAG-amd64" .
+        # 使用 buildx 明确指定平台和架构后缀，--no-cache 强制重新构建
+        docker buildx build --no-cache --platform linux/amd64 --build-arg NODE_ARCH_SUFFIX=-amd64 --build-arg NGINX_ARCH_SUFFIX=-amd64 --load -t "$IMAGE_NAME`:$TAG-amd64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""

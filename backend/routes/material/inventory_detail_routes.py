@@ -80,8 +80,8 @@ async def get_inventory_details(
             )
             .join(InventoryBatch, InventoryDetail.batch_id == InventoryBatch.batch_id)
             .join(Material, InventoryBatch.material_id == Material.id)
-            .join(Bin, InventoryDetail.bin_id == Bin.id)
-            .join(Warehouse, Bin.warehouse_id == Warehouse.id)
+            .join(Bin, InventoryDetail.bin_id == Bin.id, isouter=True)
+            .join(Warehouse, Bin.warehouse_id == Warehouse.id, isouter=True)
             .join(Major, Material.major_id == Major.id, isouter=True)
             .join(Equipment, Material.equipment_id == Equipment.id, isouter=True)
             .join(Supplier, InventoryBatch.supplier_id == Supplier.id, isouter=True)
@@ -134,7 +134,14 @@ async def get_inventory_details(
             query = query.where(Material.equipment_id.in_(equipment_id))
         
         if warehouse_id:
-            query = query.where(Warehouse.id == warehouse_id)
+            # 当使用外连接时，需要特殊处理warehouse_id过滤
+            # 使用or_条件，当记录没有货位信息或货位属于指定仓库时都应匹配
+            query = query.where(
+                or_(
+                    InventoryDetail.bin_id.is_(None),
+                    Warehouse.id == warehouse_id
+                )
+            )
         
         if bin_id:
             query = query.where(InventoryDetail.bin_id == bin_id)
@@ -253,8 +260,8 @@ async def get_all_inventory_details(
             )
             .join(InventoryBatch, InventoryDetail.batch_id == InventoryBatch.batch_id)
             .join(Material, InventoryBatch.material_id == Material.id)
-            .join(Bin, InventoryDetail.bin_id == Bin.id)
-            .join(Warehouse, Bin.warehouse_id == Warehouse.id)
+            .join(Bin, InventoryDetail.bin_id == Bin.id, isouter=True)
+            .join(Warehouse, Bin.warehouse_id == Warehouse.id, isouter=True)
             .join(Major, Material.major_id == Major.id, isouter=True)
             .join(Equipment, Material.equipment_id == Equipment.id, isouter=True)
             .join(Supplier, InventoryBatch.supplier_id == Supplier.id, isouter=True)

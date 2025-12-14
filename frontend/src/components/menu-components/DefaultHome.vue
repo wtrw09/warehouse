@@ -1,17 +1,5 @@
 <template>
   <div class="dashboard-container">
-    <!-- 顶部问候栏 -->
-    <div class="greeting-header">
-      <div class="date-info">
-        <el-icon class="date-icon"><Calendar /></el-icon>
-        <span class="date-text">{{ currentDate }}</span>
-      </div>
-      <div class="greeting-text">
-        <el-icon class="greeting-icon" v-if="greetingIcon === 'Sunny'"><Sunny /></el-icon>
-        <el-icon class="greeting-icon" v-else-if="greetingIcon === 'Moon'"><Moon /></el-icon>
-        <span>{{ greetingMessage }}</span>
-      </div>
-    </div>
 
     <!-- 核心数据概览区 -->
     <div class="statistics-cards">
@@ -303,33 +291,7 @@ const trendChart = ref<HTMLElement | null>(null);
 const warningsSection = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
 
-// 当前日期和问候语
-const currentDate = computed(() => {
-  const now = new Date();
-  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-  return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`;
-});
 
-const greetingMessage = computed(() => {
-  const hour = new Date().getHours();
-  // 优先从父组件注入的用户信息获取，其次从localStorage获取
-  const username = currentUserFromParent.value?.username || localStorage.getItem('username') || '用户';
-  let greeting = '';
-  
-  if (hour >= 0 && hour < 6) greeting = '凌晨好';
-  else if (hour >= 6 && hour < 9) greeting = '早上好';
-  else if (hour >= 9 && hour < 12) greeting = '上午好';
-  else if (hour >= 12 && hour < 14) greeting = '中午好';
-  else if (hour >= 14 && hour < 18) greeting = '下午好';
-  else greeting = '晚上好';
-  
-  return `${username}，${greeting}！`;
-});
-
-const greetingIcon = computed(() => {
-  const hour = new Date().getHours();
-  return (hour >= 6 && hour < 18) ? 'Sunny' : 'Moon';
-});
 
 // 格式化数字（千分位）
 const formatNumber = (num: number): string => {
@@ -531,49 +493,27 @@ onMounted(() => {
   min-height: 100vh;
 }
 
-/* 顶部问候栏 */
-.greeting-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 15px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  color: white;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
 
-.date-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.date-icon {
-  font-size: 24px;
-}
-
-.greeting-text {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.greeting-icon {
-  font-size: 28px;
-}
 
 /* 核心统计卡片 */
 .statistics-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-bottom: 20px;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+  .statistics-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .statistics-cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stat-card {

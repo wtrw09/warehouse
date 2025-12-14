@@ -129,6 +129,13 @@
         class="base-table"
       >
         <el-table-column 
+          type="index" 
+          label="序号" 
+          width="60" 
+          align="center" 
+          fixed="left"
+        />
+        <el-table-column 
           prop="material_code" 
           label="器材编码" 
           width="110" 
@@ -873,10 +880,13 @@ const getEquipmentsByMajor = async (majorId: number) => {
 // 获取器材列表
 const getMaterialList = async () => {
   try {
+    // 根据搜索框内容动态设置page_size：搜索框为空时显示5项，有输入时显示20项
+    const pageSize = materialFilter.keyword ? 20 : 5;
+    
     // 构建查询参数
     const params = {
       page: 1,
-      page_size: 5,
+      page_size: pageSize,
       keyword: materialFilter.keyword,
       major_id: Array.isArray(materialFilter.major_id) ? materialFilter.major_id : 
                 materialFilter.major_id !== undefined ? [materialFilter.major_id] : undefined,
@@ -1393,18 +1403,23 @@ const handleQuantityChange = async (index: number) => {
 
 // 保存出库单
 const handleSave = async () => {
+  // 验证表单
+  if (!orderFormRef.value) return;
+  
+  // 验证表单 - 确保出库单号、日期及客户不能为空
+  const valid = await orderFormRef.value.validate();
+  if (!valid) {
+    ElMessage.warning('请填写必填字段：出库单号、出库日期、客户');
+    return;
+  }
+  
+  // 验证明细
+  if (orderItems.value.length === 0) {
+    ElMessage.warning('请至少添加一条出库明细');
+    return;
+  }
+  
   try {
-    // 验证表单
-    if (!orderFormRef.value) return;
-    
-    const valid = await orderFormRef.value.validate();
-    if (!valid) return;
-    
-    // 验证明细
-    if (orderItems.value.length === 0) {
-      ElMessage.warning('请至少添加一条出库明细');
-      return;
-    }
     
     saving.value = true;
     // 构建出库单数据 - 只包含API需要的字段
@@ -1432,14 +1447,23 @@ const handleSave = async () => {
     // 优先处理detail字段中的详细信息
     if (error.response?.data?.detail) {
       const detail = error.response.data.detail;
-      let errorMessage = detail.message || '保存出库单失败';
+      let errorMessage = '保存出库单失败';
       
-      // 如果有问题器材列表，添加到错误信息中
-      if (detail.problematic_items && detail.problematic_items.length > 0) {
-        errorMessage += '\n\n无法保存出库单，原因：\n';
-        detail.problematic_items.forEach((problem: any) => {
-          errorMessage += `- ${problem.reason || '未知原因'}\n`;
-        });
+      // 处理detail为对象的情况
+      if (typeof detail === 'object') {
+        errorMessage = detail.message || errorMessage;
+        
+        // 如果有问题器材列表，添加到错误信息中
+        if (detail.problematic_items && detail.problematic_items.length > 0) {
+          errorMessage += '\n\n无法保存出库单，原因：\n';
+          detail.problematic_items.forEach((problem: any) => {
+            errorMessage += `- ${problem.reason || '未知原因'}\n`;
+          });
+        }
+      } 
+      // 处理detail为字符串的情况
+      else if (typeof detail === 'string') {
+        errorMessage = detail;
       }
       
       ElMessage.error(errorMessage);

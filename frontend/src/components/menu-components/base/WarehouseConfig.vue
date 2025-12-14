@@ -25,7 +25,7 @@
             <el-button 
               type="primary" 
               @click="handleCreate"
-              :disabled="!hasPermission('BASE-edit')"
+              v-if="hasPermission('BASE-edit')"
               :icon="Plus"
             >
               新增仓库
@@ -33,7 +33,7 @@
             <el-button 
               type="success" 
               @click="handleImport"
-              :disabled="!hasPermission('BASE-edit')"
+              v-if="hasPermission('BASE-edit')"
               :icon="Upload"
             >
               导入仓库数据
@@ -41,7 +41,7 @@
             <el-button 
               type="info" 
               @click="handleDownloadTemplate"
-              :disabled="!hasPermission('BASE-read')"
+              v-if="hasPermission('BASE-edit')"
               :icon="Download"
               :loading="templateDownloading"
             >
@@ -213,9 +213,10 @@
                 width="120" 
                 align="center" 
                 fixed="right"
+                v-if="hasPermission('BASE-edit')"
               >
                 <template #default="{ row }">
-                  <div class="base-action-buttons">
+                  <div class="base-action-buttons" >
                     <ActionTooltip 
                       content="编辑仓库" 
                       :disabled="!hasPermission('BASE-edit')"
@@ -348,7 +349,7 @@
 <script setup lang="ts">
 import { inject, ref, Ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Refresh, Search, Edit, Delete, List, Upload, Download } from '@element-plus/icons-vue'
+import { Plus, Refresh, Edit, Delete, List, Upload, Download } from '@element-plus/icons-vue'
 import { warehouseAPI } from '@/services/base/warehouse'
 import type { WarehouseResponse, WarehouseCreate, WarehouseUpdate, WarehouseStatistics, WarehouseQueryParams } from '@/services/types/warehouse'
 import type { BatchImportResult } from '@/services/types/import'
@@ -658,6 +659,8 @@ const handleDelete = async (warehouse: WarehouseResponse) => {
 
     await warehouseAPI.deleteWarehouse(warehouse.id)
     ElMessage.success('删除成功')
+    // 删除后清除所有选中状态，让用户重新选择
+    selectedWarehouses.value = []
     refreshWarehouses()
   } catch (err) {
     if (err !== 'cancel') {
@@ -806,8 +809,18 @@ const submitForm = async () => {
     
     dialogVisible.value = false
     refreshWarehouses()
-  } catch (err) {
+  } catch (err: any) {
     // 验证失败或API调用失败
+    if (err.response?.data?.detail) {
+      // 显示后端返回的详细错误信息
+      ElMessage.error(err.response.data.detail)
+    } else if (err.message) {
+      // 显示通用错误信息
+      ElMessage.error(err.message)
+    } else {
+      // 显示默认错误信息
+      ElMessage.error(isEdit.value ? '更新失败' : '创建失败')
+    }
   }
 }
 

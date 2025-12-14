@@ -25,7 +25,7 @@
             <el-button 
               type="primary" 
               @click="handleCreate"
-              :disabled="!hasPermission('BASE-edit')"
+              v-if="hasPermission('BASE-edit')"
               :icon="Plus"
             >
               新增供应商
@@ -33,7 +33,7 @@
             <el-button 
               type="success" 
               @click="handleImport"
-              :disabled="!hasPermission('BASE-edit')"
+              v-if="hasPermission('BASE-edit')"
               :icon="Upload"
             >
               导入供应商
@@ -41,7 +41,7 @@
             <el-button 
               type="info" 
               @click="handleDownloadTemplate"
-              :disabled="!hasPermission('BASE-read')"
+              v-if="hasPermission('BASE-read')"
               :icon="Download"
               :loading="templateDownloading"
             >
@@ -214,36 +214,35 @@
                 width="120" 
                 align="center" 
                 fixed="right"
+                v-if="hasPermission('BASE-edit')"
               >
                 <template #default="{ row }">
                   <div class="base-action-buttons">
                     <ActionTooltip 
-                      content="编辑供应商" 
-                      :disabled="!hasPermission('BASE-edit')"
-                    >
-                      <el-button 
-                        type="primary" 
-                        size="small" 
-                        @click="handleEdit(row)"
-                        :disabled="!hasPermission('BASE-edit')"
-                        :icon="Edit"
-                        class="base-button-circle"
-                      />
-                    </ActionTooltip>
+                    content="编辑供应商"
+                  >
+                    <el-button 
+                      type="primary" 
+                      size="small" 
+                      @click="handleEdit(row)"
+                      v-if="hasPermission('BASE-edit')"
+                      :icon="Edit"
+                      class="base-button-circle"
+                    />
+                  </ActionTooltip>
                     
                     <ActionTooltip 
-                      content="删除供应商" 
-                      :disabled="!hasPermission('BASE-edit')"
-                    >
-                      <el-button 
-                        type="danger" 
-                        size="small" 
-                        @click="handleDelete(row)"
-                        :disabled="!hasPermission('BASE-edit')"
-                        :icon="Delete"
-                        class="base-button-circle"
-                      />
-                    </ActionTooltip>
+                    content="删除供应商"
+                  >
+                    <el-button 
+                      type="danger" 
+                      size="small" 
+                      @click="handleDelete(row)"
+                      v-if="hasPermission('BASE-edit')"
+                      :icon="Delete"
+                      class="base-button-circle"
+                    />
+                  </ActionTooltip>
                   </div>
                 </template>
               </el-table-column>
@@ -694,28 +693,29 @@ const handleEdit = (supplier: SupplierResponse) => {
 // 处理删除
 const handleDelete = async (supplier: SupplierResponse) => {
   if (!hasPermission('BASE-edit')) {
-    ElMessage.warning('您没有删除权限')
+    ElMessage.warning('没有删除供应商的权限')
     return
   }
   
   try {
     await ElMessageBox.confirm(
-      `确定要删除供应商 \"${supplier.supplier_name}\" 吗？此操作不可恢复。`,
+      `确定要删除供应商"${supplier.supplier_name}"吗？此操作不可恢复。`,
       '确认删除',
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'warning',
+        type: 'warning'
       }
     )
     
     await supplierAPI.deleteSupplier(supplier.id)
     ElMessage.success('删除成功')
+    // 删除后清除所有选中状态，让用户重新选择
+    selectedSuppliers.value = []
     loadSuppliers()
   } catch (err) {
     if (err !== 'cancel') {
-      console.error('删除供应商失败:', err)
-      ElMessage.error('删除失败，请稍后重试')
+      ElMessage.error('删除失败')
     }
   }
 }

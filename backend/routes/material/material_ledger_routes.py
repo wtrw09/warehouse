@@ -80,7 +80,7 @@ async def generate_material_ledger_pdf_by_order_number(
             material_item = {
                 "material_code": material.material_code,
                 "material_name": material.material_name,
-                "specification": material.material_specification,
+                "specification": material.material_specification or "",
                 "unit": item.unit,  # 使用InboundOrderItem中的unit字段
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,

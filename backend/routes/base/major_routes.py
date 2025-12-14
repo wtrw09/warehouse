@@ -115,7 +115,7 @@ async def get_major(
         raise HTTPException(status_code=500, detail="获取专业失败")
 
 # 创建专业
-@major_router.post("/", response_model=MajorResponse)
+@major_router.post("", response_model=MajorResponse)
 async def create_major(
     major_data: MajorCreate,
     db: Session = Depends(get_db),

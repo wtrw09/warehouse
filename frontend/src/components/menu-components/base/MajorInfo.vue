@@ -23,9 +23,9 @@
         <div class="base-operation-bar">
           <div class="base-operation-bar__left">
             <el-button 
+              v-if="hasPermission('BASE-edit')"
               type="primary" 
               @click="handleCreate"
-              :disabled="!hasPermission('BASE-edit')"
               :icon="Plus"
             >
               新增专业
@@ -142,32 +142,31 @@
               width="120" 
               align="center" 
               fixed="right"
+              v-if="hasPermission('BASE-edit')"
             >
               <template #default="{ row }">
                 <div class="base-action-buttons">
                   <ActionTooltip 
+                    v-if="hasPermission('BASE-edit')"
                     content="编辑专业" 
-                    :disabled="!hasPermission('BASE-edit')"
                   >
                     <el-button 
                       type="primary" 
                       size="small" 
                       @click="handleEdit(row)"
-                      :disabled="!hasPermission('BASE-edit')"
                       :icon="Edit"
                       class="base-button-circle"
                     />
                   </ActionTooltip>
                   
                   <ActionTooltip 
+                    v-if="hasPermission('BASE-edit')"
                     content="删除专业" 
-                    :disabled="!hasPermission('BASE-edit')"
                   >
                     <el-button 
                       type="danger" 
                       size="small" 
                       @click="handleDelete(row)"
-                      :disabled="!hasPermission('BASE-edit')"
                       :icon="Delete"
                       class="base-button-circle"
                     />
@@ -318,7 +317,7 @@ const loadMajors = async () => {
     const params = searchKeyword.value ? { search: searchKeyword.value } : {};
     const response = await majorAPI.getMajors(params);
     majorList.value = response.data;
-    // 生成专业名称筛选器
+    // 更新专业名称过滤器
     updateMajorNameFilters();
   } catch (error) {
     console.error('加载专业列表失败:', error);
@@ -357,6 +356,11 @@ const handleClearSearch = () => {
 };
 
 const handleCreate = () => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有创建专业的权限');
+    return;
+  }
+  
   // 检查是否有临时数据
   if (tempFormData.value && lastMenuType.value === 'create') {
     // 恢复临时数据
@@ -376,6 +380,11 @@ const handleCreate = () => {
 };
 
 const handleEdit = (row: MajorResponse) => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有编辑专业的权限');
+    return;
+  }
+  
   // 检查是否有临时数据
   if (tempFormData.value && lastMenuType.value === 'edit' && tempFormData.value.id === row.id) {
     // 恢复临时数据
@@ -415,6 +424,10 @@ const handleDelete = async (row: MajorResponse) => {
     deleting.value = true;
     await majorAPI.deleteMajor(row.id);
     ElMessage.success('删除成功');
+    
+    // 删除后清除所有选中状态，让用户重新选择
+    selectedMajors.value = [];
+    
     refreshMajors();
   } catch (error) {
     if (error !== 'cancel') {
@@ -431,6 +444,11 @@ const handleSelectionChange = (selection: MajorResponse[]) => {
 };
 
 const handleBatchDelete = () => {
+  if (!hasPermission('BASE-edit')) {
+    ElMessage.warning('没有删除专业的权限');
+    return;
+  }
+  
   if (selectedMajors.value.length === 0) {
     ElMessage.warning('请选择要删除的专业');
     return;

@@ -3,6 +3,7 @@ from sqlmodel import Session, select, func, and_, or_
 from typing import List
 import logging
 from datetime import datetime
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -291,7 +292,7 @@ async def get_material(
         raise HTTPException(status_code=500, detail=f"获取器材详情失败: {str(e)}")
 
 # 创建器材
-@material_router.post("/", response_model=MaterialResponse)
+@material_router.post("", response_model=MaterialResponse)
 async def create_material(
     material: MaterialCreate,
     db: Session = Depends(get_db),
@@ -299,6 +300,11 @@ async def create_material(
 ):
     """创建新器材"""
     print("创建器材请求:", material);
+    
+    # 处理equipment_id为空字符串或无效值的情况
+    if hasattr(material, 'equipment_id') and (material.equipment_id == "" or material.equipment_id is None):
+        material.equipment_id = None
+    
     try:
         # 验证器材编码的唯一性
         if not validate_material_code_unique(db, material.material_code):
@@ -398,8 +404,8 @@ async def update_material(
             if not validate_material_code_unique(db, material_update.material_code, exclude_id=id):
                 raise HTTPException(status_code=400, detail="器材编码已存在")
         
-        # 更新字段
-        update_data = material_update.dict(exclude_unset=True)
+        # 更新字段 - 使用exclude_none=True而不是exclude_unset=True，以便正确处理空值
+        update_data = material_update.model_dump(exclude_none=True)
         
         # 智能更新器材查询码逻辑：
         # 1. 如果用户明确提供了material_query_code，则使用用户提供的值
@@ -409,14 +415,18 @@ async def update_material(
         if "material_query_code" in update_data:
             # 用户明确提供了查询码，使用用户提供的值
             pass  # 不需要额外处理，直接使用用户提供的值
-        elif material_update.material_name or material_update.material_specification:
+        elif material_update.material_name is not None or material_update.material_specification is not None:
             # 用户没有提供查询码，但更新了器材名称或规格，重新生成查询码
-            new_name = material_update.material_name if material_update.material_name else db_material.material_name
-            new_spec = material_update.material_specification if material_update.material_specification else db_material.material_specification
+            new_name = material_update.material_name if material_update.material_name is not None else db_material.material_name
+            new_spec = material_update.material_specification if material_update.material_specification is not None else db_material.material_specification
             update_data["material_query_code"] = generate_material_query_code(new_name, new_spec)
         
-        # 自动获取major_id：如果更新了equipment_id，通过装备表获取对应的major_id
+        # 装备和专业字段智能处理逻辑：
+        # 1. 装备有值，专业为空：通过装备获取专业信息
+        # 2. 装备为空：同时清空专业和装备信息
+        # 处理装备和专业字段更新
         if material_update.equipment_id:
+            # 装备有值，通过装备表获取对应的专业信息
             equipment = db.exec(select(Equipment).where(Equipment.id == material_update.equipment_id)).first()
             if equipment:
                 update_data["major_id"] = equipment.major_id
@@ -426,10 +436,12 @@ async def update_material(
                 if equipment.major_id:
                     major = db.exec(select(Major).where(Major.id == equipment.major_id)).first()
                     update_data["major_name"] = major.major_name if major else None
-        elif material_update.major_id:
-            # 如果直接更新了major_id，获取专业名称
-            major = db.exec(select(Major).where(Major.id == material_update.major_id)).first()
-            update_data["major_name"] = major.major_name if major else None
+        else:
+            # 装备为空（None、空值或undefined），同时清空专业和装备信息
+            update_data["major_id"] = None
+            update_data["equipment_id"] = None  # 关键：必须同时清空equipment_id
+            update_data["equipment_name"] = None
+            update_data["major_name"] = None
         
         # 设置更新时间
         update_data["update_time"] = datetime.now()

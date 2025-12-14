@@ -144,6 +144,13 @@
         class="base-table"
       >
         <el-table-column 
+          type="index" 
+          label="序号" 
+          width="60" 
+          align="center" 
+          fixed="left"
+        />
+        <el-table-column 
           prop="material_code" 
           label="器材编码" 
           width="120" 
@@ -314,7 +321,7 @@
             <el-form :model="selectedMaterialInfo" label-width="80px">
               <el-row :gutter="10">
                 <el-col :span="12">
-                  <el-form-item label="器材编码">
+                  <el-form-item label="器材编码" required>
                     <el-input 
                       v-model="selectedMaterialInfo.material_code" 
                       placeholder="双击器材自动填充" 
@@ -323,7 +330,7 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="器材名称">
+                  <el-form-item label="器材名称" required>
                     <el-input 
                       v-model="selectedMaterialInfo.material_name" 
                       placeholder="点击输入器材名称" 
@@ -356,7 +363,7 @@
               </el-row>
               <el-row :gutter="10">
                 <el-col :span="12">
-                  <el-form-item label="数量">
+                  <el-form-item label="数量" required>
                     <el-input-number 
                       v-model="selectedMaterialInfo.quantity" 
                       :min="1" 
@@ -368,7 +375,7 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="单价">
+                  <el-form-item label="单价" required>
                     <el-input-number 
                       v-model="selectedMaterialInfo.unit_price" 
                       :min="0" 
@@ -382,7 +389,7 @@
               </el-row>
               <el-row :gutter="10">
                 <el-col :span="12">
-                  <el-form-item label="单位">
+                  <el-form-item label="单位" required>
                     <div class="unit-input-container">
                       <el-input 
                         v-model="selectedMaterialInfo.unit" 
@@ -432,7 +439,7 @@
               </el-row>
               <el-row :gutter="10">
                 <el-col :span="12">
-                  <el-form-item label="批次号">
+                  <el-form-item label="批次号" required>
                     <el-input 
                       v-model="selectedMaterialInfo.batch_number" 
                       placeholder="请输入批次号或使用自动生成" 
@@ -440,7 +447,7 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="生产日期">
+                  <el-form-item label="生产日期" required>
                     <el-date-picker
                       v-model="selectedMaterialInfo.production_date"
                       type="date"
@@ -915,6 +922,8 @@ const handleUnitSelect = (unit: string) => {
 
 const handleUnitInputFocus = () => {
   showUnitDropdown.value = true;
+  // 显示所有常用单位，包括'个'
+  unitOptions.value = [...COMMON_UNITS];
 };
 
 const handleUnitInputBlur = () => {
@@ -1351,67 +1360,132 @@ const handleAddMaterial = async () => {
     resetSelectedMaterialInfo();
     materialDrawerVisible.value = false;
   } else {
-    // 添加模式：判断是编辑模式还是新增模式
-    if (isEdit.value && orderId.value) {
-      // 编辑模式下添加器材：直接调用后端API添加器材信息
-      try {
-        const response = await inboundOrderAPI.addInboundOrderItem(orderId.value, {
-          material_id: newItem.material_id,
-          quantity: newItem.quantity,
-          unit: newItem.unit,
-          unit_price: newItem.unit_price,
-          batch_number: newItem.batch_number,
-          bin_id: newItem.bin_id,
-          production_date: newItem.production_date
-        });
-        
-        // 将后端返回的item_id添加到器材项中
-        newItem.item_id = response.item_id;
+    // 添加模式：检查是否已存在相同批次号的器材
+    const existingItemIndex = orderItems.value.findIndex(item => 
+      item.material_id === newItem.material_id && 
+      item.batch_number === newItem.batch_number
+    );
+    
+    if (existingItemIndex !== -1) {
+      // 存在相同批次号的器材，进行合并
+      const existingItem = orderItems.value[existingItemIndex];
+      const originalQuantity = existingItem.quantity;
+      const newQuantity = originalQuantity + newItem.quantity;
+      
+      // 更新现有器材的数量
+      existingItem.quantity = newQuantity;
+      
+      // 如果是编辑模式且存在订单ID，调用后端API更新器材数量
+      if (isEdit.value && orderId.value && existingItem.item_id) {
+        try {
+          await inboundOrderAPI.updateInboundOrderItem(orderId.value, existingItem.item_id, {
+            quantity: newQuantity,
+            unit_price: existingItem.unit_price
+          });
+          ElMessage.success(`发现相同批次器材，已自动合并`);
+        } catch (error: any) {
+          // 如果更新失败，恢复原始数量
+          existingItem.quantity = originalQuantity;
+          
+          // 优先处理detail字段中的详细信息
+          if (error.response?.data?.detail) {
+            const detail = error.response.data.detail;
+            let errorMessage = '器材合并失败';
+            
+            if (typeof detail === 'string') {
+              errorMessage = detail;
+            } else if (typeof detail === 'object' && detail !== null) {
+              errorMessage = detail.message || '器材合并失败';
+              
+              if (detail.problematic_items && detail.problematic_items.length > 0) {
+                errorMessage += '\n\n无法合并器材，原因：\n';
+                detail.problematic_items.forEach((problem: any) => {
+                  errorMessage += `- ${problem.reason || '未知原因'}\n`;
+                });
+              }
+            }
+            
+            ElMessage.error(errorMessage);
+          } else {
+            const errorMessage = error.response?.data?.message || error.message || '器材合并失败';
+            ElMessage.error(`器材合并失败: ${errorMessage}`);
+          }
+          return;
+        }
+      } else {
+        ElMessage.success(`发现相同批次器材，已自动合并`);
+      }
+      
+      // 合并模式：清空选中信息，但保持抽屉打开（新增模式）或关闭抽屉（编辑模式）
+      resetSelectedMaterialInfo();
+      if (isEdit.value && orderId.value) {
+        // 编辑模式：关闭抽屉
+        materialDrawerVisible.value = false;
+      }
+      // 新增模式：保持抽屉打开，用户可以继续添加其他器材
+    } else {
+      // 不存在相同批次号的器材，正常添加
+      if (isEdit.value && orderId.value) {
+        // 编辑模式下添加器材：直接调用后端API添加器材信息
+        try {
+          const response = await inboundOrderAPI.addInboundOrderItem(orderId.value, {
+            material_id: newItem.material_id,
+            quantity: newItem.quantity,
+            unit: newItem.unit,
+            unit_price: newItem.unit_price,
+            batch_number: newItem.batch_number,
+            bin_id: newItem.bin_id,
+            production_date: newItem.production_date
+          });
+          
+          // 将后端返回的item_id添加到器材项中
+          newItem.item_id = response.item_id;
+          orderItems.value.push(newItem);
+          ElMessage.success(`已添加器材: ${selectedMaterialInfo.material_name}`);
+          
+          // 编辑模式：清空选中信息并关闭抽屉
+          resetSelectedMaterialInfo();
+          materialDrawerVisible.value = false;
+        } catch (error: any) {
+          // 优先处理detail字段中的详细信息
+          if (error.response?.data?.detail) {
+            const detail = error.response.data.detail;
+            let errorMessage = '器材添加失败';
+            
+            // 判断detail是字符串还是对象
+            if (typeof detail === 'string') {
+              // detail是字符串，直接显示
+              errorMessage = detail;
+            } else if (typeof detail === 'object' && detail !== null) {
+              // detail是对象，处理message字段和problematic_items
+              errorMessage = detail.message || '器材添加失败';
+              
+              // 如果有问题器材列表，添加到错误信息中
+              if (detail.problematic_items && detail.problematic_items.length > 0) {
+                errorMessage += '\n\n无法添加器材，原因：\n';
+                detail.problematic_items.forEach((problem: any) => {
+                  errorMessage += `- ${problem.reason || '未知原因'}\n`;
+                });
+              }
+            }
+            
+            ElMessage.error(errorMessage);
+          } else {
+            // 如果没有detail字段，使用原来的逻辑
+            const errorMessage = error.response?.data?.message || error.message || '器材添加失败';
+            ElMessage.error(`器材添加失败: ${errorMessage}`);
+          }
+          return;
+        }
+      } else {
+        // 新增入库单模式：添加到器材列表，等待统一提交保存
         orderItems.value.push(newItem);
         ElMessage.success(`已添加器材: ${selectedMaterialInfo.material_name}`);
         
-        // 编辑模式：清空选中信息并关闭抽屉
+        // 新增模式：清空选中信息，但保持抽屉打开
+        // 用户可以继续添加其他器材
         resetSelectedMaterialInfo();
-        materialDrawerVisible.value = false;
-      } catch (error: any) {
-        // 优先处理detail字段中的详细信息
-        if (error.response?.data?.detail) {
-          const detail = error.response.data.detail;
-          let errorMessage = '器材添加失败';
-          
-          // 判断detail是字符串还是对象
-          if (typeof detail === 'string') {
-            // detail是字符串，直接显示
-            errorMessage = detail;
-          } else if (typeof detail === 'object' && detail !== null) {
-            // detail是对象，处理message字段和problematic_items
-            errorMessage = detail.message || '器材添加失败';
-            
-            // 如果有问题器材列表，添加到错误信息中
-            if (detail.problematic_items && detail.problematic_items.length > 0) {
-              errorMessage += '\n\n无法添加器材，原因：\n';
-              detail.problematic_items.forEach((problem: any) => {
-                errorMessage += `- ${problem.reason || '未知原因'}\n`;
-              });
-            }
-          }
-          
-          ElMessage.error(errorMessage);
-        } else {
-          // 如果没有detail字段，使用原来的逻辑
-          const errorMessage = error.response?.data?.message || error.message || '器材添加失败';
-          ElMessage.error(`器材添加失败: ${errorMessage}`);
-        }
-        return;
       }
-    } else {
-      // 新增入库单模式：添加到器材列表，等待统一提交保存
-      orderItems.value.push(newItem);
-      ElMessage.success(`已添加器材: ${selectedMaterialInfo.material_name}`);
-      
-      // 新增模式：清空选中信息，但保持抽屉打开
-      // 用户可以继续添加其他器材
-      resetSelectedMaterialInfo();
     }
   }
 };
@@ -2164,7 +2238,7 @@ onMounted(() => {
   border-radius: 4px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   z-index: 2000;
-  max-height: 200px;
+  max-height: 150px;
   overflow-y: auto;
   margin-bottom: 2px;
 }

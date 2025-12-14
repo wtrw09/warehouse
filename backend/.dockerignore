@@ -1,13 +1,18 @@
-# 开发环境文件
-.venv*
-venv*
+# 开发环境文件（虚拟环境必须完全排除）
+.venv/
+.venv*/
+venv/
+venv*/
 venv313/
+env/
+env*/
 .Python
-__pycache__
+__pycache__/
+*/__pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
-env
 pip-log.txt
 pip-delete-this-directory.txt
 
@@ -52,6 +57,27 @@ build-*.ps1
 build-*.sh
 fix_encoding.py
 
+# 项目根目录的说明文档（不需要包含）
+README.md
+说明文件/
+*.md
+
+# 备份目录（需要保留，因为代码中需要导入backup模块）
+# backup/
+
+# 初始化目录（需要保留，因为代码中需要导入initialize模块）
+# initialize/
+
+# 测试和示例文件（如果有的话）
+test*
+example*
+sample*
+
+# 临时文件和目录
+temp*
+tmp*
+*.tmp
+
 # 字体文件（需要保留，用于PDF生成和报表打印）
 # fonts/  # 注释掉，字体文件需要包含在镜像中
 
@@ -61,7 +87,7 @@ fix_encoding.py
 # 数据文件（需要保留，包含系统配置和初始化数据）
 # data/   # 注释掉，数据文件需要包含在镜像中
 
-# Node.js相关文件（如果是纯Python项目）
+# Node.js相关文件（后端不需要Node.js依赖）
 package.json
 package-lock.json
 node_modules/

@@ -1,6 +1,7 @@
 """
 会话管理器 - 支持滑动会话超时功能
 """
+import asyncio
 import json
 import redis.asyncio as redis
 import time
@@ -17,6 +18,7 @@ class SessionManager:
         self._fallback_sessions: Dict[str, Dict[str, Any]] = {}  # 备选存储方案：内存存储
         self._last_check_time = 0  # 上次检查Redis的时间
         self._check_interval = 10  # Redis状态检查间隔（秒），避免频繁检查
+        self._lock = asyncio.Lock()  # 保护_fallback_sessions的并发访问
         
     async def get_redis_client(self) -> Optional[redis.Redis]:
         """获取Redis客户端连接，如果Redis不可用则返回None"""
@@ -160,7 +162,8 @@ class SessionManager:
             else:
                 # Redis不可用，使用备选存储方案
                 session_data["expires_at"] = int(time.time()) + timeout_seconds
-                self._fallback_sessions[user_id] = session_data
+                async with self._lock:
+                    self._fallback_sessions[user_id] = session_data
                 print(f"[DEBUG] 会话已创建在备选存储中: {user_id}")
             
             return True
@@ -188,17 +191,24 @@ class SessionManager:
                 return session_data
             else:
                 # Redis不可用，从备选存储获取
-                session_data = self._fallback_sessions.get(user_id)
-                if session_data:
-                    # 检查是否过期
-                    current_time = int(time.time())
-                    expires_at = session_data.get("expires_at", 0)
-                    if current_time > expires_at:
-                        # 会话已过期，删除
-                        del self._fallback_sessions[user_id]
+                async with self._lock:
+                    session_data = self._fallback_sessions.get(user_id)
+                    if session_data:
+                        # 检查是否过期
+                        current_time = int(time.time())
+                        expires_at = session_data.get("expires_at", 0)
+                        print(f"[DEBUG] get_session备选存储 - user_id={user_id}, expires_at={expires_at}, current_time={current_time}, session_data keys={list(session_data.keys())}")
+                        print(f"[DEBUG] get_session备选存储 - 时间差: {expires_at - current_time}秒")
+                        if current_time > expires_at:
+                            # 会话已过期，删除
+                            print(f"[DEBUG] get_session备选存储 - 会话已过期，删除: user_id={user_id}")
+                            del self._fallback_sessions[user_id]
+                            return None
+                        print(f"[DEBUG] get_session备选存储 - 会话有效，返回数据")
+                        return session_data
+                    else:
+                        print(f"[DEBUG] get_session备选存储 - 未找到会话: user_id={user_id}, fallback_sessions keys={list(self._fallback_sessions.keys())}")
                         return None
-                    return session_data
-                return None
         except Exception as e:
             print(f"获取会话失败: {e}")
             return None
@@ -228,12 +238,13 @@ class SessionManager:
                 )
             else:
                 # Redis不可用，更新备选存储中的会话
-                if user_id in self._fallback_sessions:
-                    current_time = int(time.time())
-                    self._fallback_sessions[user_id]["last_activity"] = current_time
-                    # 在备用模式下也需要更新过期时间，实现真正的滑动过期
-                    timeout_seconds = dynamic_settings.SLIDING_SESSION_TIMEOUT_MINUTES * 60
-                    self._fallback_sessions[user_id]["expires_at"] = current_time + timeout_seconds
+                async with self._lock:
+                    if user_id in self._fallback_sessions:
+                        current_time = int(time.time())
+                        self._fallback_sessions[user_id]["last_activity"] = current_time
+                        # 在备用模式下也需要更新过期时间，实现真正的滑动过期
+                        timeout_seconds = dynamic_settings.SLIDING_SESSION_TIMEOUT_MINUTES * 60
+                        self._fallback_sessions[user_id]["expires_at"] = current_time + timeout_seconds
             
             return True
         except Exception as e:
@@ -245,23 +256,30 @@ class SessionManager:
         try:
             session_data = await self.get_session(user_id)
             if not session_data:
+                print(f"[DEBUG] is_session_valid - 未找到会话数据: user_id={user_id}")
                 return False
                 
             # 检查会话是否活跃
-            if not session_data.get("active", False):
+            active = session_data.get("active", False)
+            print(f"[DEBUG] is_session_valid - 获取active字段: {active}, 类型: {type(active)}")
+            if not active:
+                print(f"[DEBUG] is_session_valid - 会话不活跃: user_id={user_id}, active={active}")
                 return False
             
             last_activity = session_data.get("last_activity", 0)
             current_time = int(time.time())
             timeout_seconds = dynamic_settings.SLIDING_SESSION_TIMEOUT_MINUTES * 60
+            time_diff = current_time - last_activity
 
-            print(f"[DEBUG] 检查会话有效性: {user_id}",session_data.get("active", False),last_activity,current_time,timeout_seconds)
+            print(f"[DEBUG] is_session_valid - user_id={user_id}, active={active}, last_activity={last_activity}, current_time={current_time}, timeout_seconds={timeout_seconds}, time_diff={time_diff}, expires_at={session_data.get('expires_at', 'N/A')}")
             # 检查是否超时
-            if current_time - last_activity > timeout_seconds:
+            if time_diff > timeout_seconds:
                 # 会话超时，标记为不活跃
+                print(f"[DEBUG] is_session_valid - 会话超时，标记为不活跃: user_id={user_id}, time_diff={time_diff} > timeout_seconds={timeout_seconds}")
                 await self.invalidate_session(user_id)
                 return False
             
+            print(f"[DEBUG] is_session_valid - 会话有效: user_id={user_id}")
             return True
         except Exception as e:
             print(f"检查会话有效性失败: {e}")
@@ -277,8 +295,9 @@ class SessionManager:
                 await redis_client.hset(self._get_session_key(user_id), "active", "False")
             else:
                 # Redis不可用，在备选存储中使会话失效
-                if user_id in self._fallback_sessions:
-                    self._fallback_sessions[user_id]["active"] = False
+                async with self._lock:
+                    if user_id in self._fallback_sessions:
+                        self._fallback_sessions[user_id]["active"] = False
             
             return True
         except Exception as e:
@@ -295,8 +314,9 @@ class SessionManager:
                 await redis_client.delete(self._get_session_key(user_id))
             else:
                 # Redis不可用，从备选存储删除会话
-                if user_id in self._fallback_sessions:
-                    del self._fallback_sessions[user_id]
+                async with self._lock:
+                    if user_id in self._fallback_sessions:
+                        del self._fallback_sessions[user_id]
             
             return True
         except Exception as e:

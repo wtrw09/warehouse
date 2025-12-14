@@ -16,7 +16,21 @@
             <span style="margin-left: 8px;">仓库管理系统</span>
           </div>
         </div>
+        
+        <!-- 问候栏 -->
+        <div class="greeting-section">
+          <div class="greeting-content">
+            <el-icon class="date-icon"><Calendar /></el-icon>
+            <span class="date-text">{{ currentDate }}</span>
+          </div>
+        </div>
+        
         <nav class="navbar-nav">
+          <div class="user-greeting">
+            <el-icon class="greeting-icon" v-if="greetingIcon === 'Sunny'"><Sunny /></el-icon>
+            <el-icon class="greeting-icon" v-else-if="greetingIcon === 'Moon'"><Moon /></el-icon>
+            <span class="greeting-text">{{ greetingMessage }}</span>
+          </div>
           <el-dropdown v-if="currentUser" placement="bottom-end">
             <span class="el-dropdown-link">
               <el-avatar :size="32" :src="currentUser.avatar || defaultAvatar" style="margin-right: 8px;">
@@ -49,7 +63,16 @@
             <template v-for="menu in visibleMenus" :key="menu.index">
               <el-sub-menu v-if="menu && menu.children && Array.isArray(menu.children) && menu.children.length > 0" :index="menu.index">
                 <template #title>
-                  <el-icon><component :is="menu.icon" /></el-icon>
+                  <el-icon>
+                    <component 
+                      :is="menu.icon" 
+                      v-if="menu.icon && menu.icon.__v_skip"
+                      :src="getMenuIconPath(menu.title)"
+                      width="16px" 
+                      height="16px"
+                    />
+                    <component :is="menu.icon" v-else />
+                  </el-icon>
                   <span>{{ menu.title }}</span>
                 </template>
                 <!-- 移除重复的权限检查，信任getVisibleMenus的过滤结果 -->
@@ -64,7 +87,16 @@
               </el-sub-menu>
               <!-- 叶子菜单项，也移除重复的权限检查 -->
               <el-menu-item v-else-if="menu" :index="menu.index">
-                <el-icon><component :is="menu.icon" /></el-icon>
+                <el-icon>
+                  <component 
+                    :is="menu.icon" 
+                    v-if="menu.icon && menu.icon.__v_skip"
+                    :src="getMenuIconPath(menu.title)"
+                    width="16px" 
+                    height="16px"
+                  />
+                  <component :is="menu.icon" v-else />
+                </el-icon>
                 <span>{{ menu.title }}</span>
               </el-menu-item>
             </template>
@@ -80,7 +112,7 @@
 <script setup>
 import { ref, onMounted, nextTick, computed, provide, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { ArrowRight, Box, ArrowDown, Expand, Fold, House } from '@element-plus/icons-vue'
+import { ArrowRight, Box, ArrowDown, Expand, Fold, House, Calendar, Sunny, Moon } from '@element-plus/icons-vue'
 import SvgIcon from './SvgIcon.vue';
 import { authAPI } from '../services/api';
 import { useRouter } from 'vue-router';
@@ -260,6 +292,52 @@ const handleMenuClick = (index) => {
   } 
 };
 
+// 导入SVG图标文件
+import homeIcon from '../assets/menu/主页.svg';
+import basicDataIcon from '../assets/menu/基础数据.svg';
+import warehouseIcon from '../assets/menu/出入库管理.svg';
+import accountIcon from '../assets/menu/账户管理.svg';
+import systemIcon from '../assets/menu/系统设置.svg';
+
+// 根据菜单标题获取对应的SVG图标路径
+const getMenuIconPath = (title) => {
+  const iconMap = {
+    '主页': homeIcon,
+    '基础数据': basicDataIcon, 
+    '出入库管理': warehouseIcon,
+    '账户管理': accountIcon,
+    '系统设置': systemIcon
+  };
+  
+  return iconMap[title] || homeIcon;
+};
+
+// 问候栏相关计算属性
+const currentDate = computed(() => {
+  const now = new Date();
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`;
+});
+
+const greetingMessage = computed(() => {
+  const hour = new Date().getHours();
+  let greeting = '';
+  
+  if (hour >= 0 && hour < 6) greeting = '凌晨好';
+  else if (hour >= 6 && hour < 9) greeting = '早上好';
+  else if (hour >= 9 && hour < 12) greeting = '上午好';
+  else if (hour >= 12 && hour < 14) greeting = '中午好';
+  else if (hour >= 14 && hour < 18) greeting = '下午好';
+  else greeting = '晚上好';
+  
+  return `${greeting}！`;
+});
+
+const greetingIcon = computed(() => {
+  const hour = new Date().getHours();
+  return (hour >= 6 && hour < 18) ? 'Sunny' : 'Moon';
+});
+
 // 组件挂载时初始化
 onMounted(() => {
   // 调用登录状态检查逻辑
@@ -367,6 +445,78 @@ watch(() => route.query.menu, (newMenuIndex) => {
   display: flex;
   align-items: center;
   height: 100%;
+  gap: 16px;
+}
+
+/* 用户问候区域 */
+.user-greeting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+}
+
+.user-greeting .greeting-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.user-greeting .greeting-icon {
+  font-size: 16px;
+  color: #f6ad55;
+}
+
+/* 问候栏样式 */
+.greeting-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  max-width: 400px;
+  margin: 0 auto;
+  color: #4a5568;
+}
+
+.greeting-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+}
+
+.date-icon {
+  font-size: 16px;
+  color: #667eea;
+}
+
+.date-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+/* 响应式调整 */
+@media (max-width: 1024px) {
+  .greeting-section {
+    max-width: 300px;
+  }
+  
+  .date-info {
+    font-size: 13px;
+  }
+  
+  .greeting-text {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .greeting-section {
+    display: none;
+  }
 }
 
 /* 下拉菜单链接样式 - 垂直居中 */

@@ -23,8 +23,8 @@ class InventoryDetailResponse(BaseModel):
     equipment_id: Optional[int] = Field(None, description="装备ID")
     equipment_name: Optional[str] = Field(None, description="装备名称")
     equipment_specification: Optional[str] = Field(None, description="装备型号")
-    bin_name: str = Field(..., description="货位名称")
-    warehouse_name: str = Field(..., description="仓库名称")
+    bin_name: Optional[str] = Field(None, description="货位名称")
+    warehouse_name: Optional[str] = Field(None, description="仓库名称")
     update_time: datetime = Field(..., description="更新时间")
     last_updated: date = Field(..., description="上次更新日期")
 

@@ -1,0 +1,52 @@
+
+/* 登录页背景图片优化配置 */
+.login-background-optimized {
+  /* 初始加载极小的占位图 */
+  background-image: url('./login-background-small.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: background-image 0.3s ease-in-out;
+}
+
+/* 响应式图片加载 */
+@media (min-width: 768px) {
+  .login-background-optimized {
+    background-image: url('./login-background-medium.jpg');
+  }
+}
+
+@media (min-width: 1200px) {
+  .login-background-optimized {
+    background-image: url('./login-background-original.jpg');
+  }
+}
+
+/* WebP格式支持（更小的文件大小） */
+@supports (background-image: url('./login-background-small.webp')) {
+  .login-background-optimized {
+    background-image: url('./login-background-small.webp');
+  }
+  
+  @media (min-width: 768px) {
+    .login-background-optimized {
+      background-image: url('./login-background-medium.webp');
+    }
+  }
+  
+  @media (min-width: 1200px) {
+    .login-background-optimized {
+      background-image: url('./login-background-original.webp');
+    }
+  }
+}
+
+/* 加载完成后的样式 */
+.background-loaded {
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.background-loading {
+  opacity: 0.7;
+}

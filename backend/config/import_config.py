@@ -244,20 +244,20 @@ def get_warehouse_import_config() -> ImportConfig:
                 example="朝阳区xxx街道"
             ),
             TemplateField(
-                key="warehouse_contact",
-                label="联系方式",
-                required=False,
-                type="string",
-                max_length=50,
-                example="13800138000"
-            ),
-            TemplateField(
                 key="warehouse_manager",
                 label="负责人",
                 required=False,
                 type="string",
                 max_length=50,
                 example="张三"
+            ),
+            TemplateField(
+                key="warehouse_contact",
+                label="联系方式",
+                required=False,
+                type="string",
+                max_length=50,
+                example="13800138000"
             ),
         ],
         validation_rules=[

@@ -27,7 +27,11 @@ export { majorAPI } from './base/major';
 export { subMajorAPI } from './base/sub_major';
 export { materialAPI } from './base/material';
 
-
+// 导出物料管理模块API
+export { inboundOrderAPI } from './material/inbound';
+export { outboundOrderAPI } from './material/outbound';
+export { inventoryDetailAPI } from './material/inventory_detail';
+export { inventoryTransactionAPI } from './material/inventory_transaction';
 
 // 导出系统设置模块
 export { systemAPI } from './system/system';

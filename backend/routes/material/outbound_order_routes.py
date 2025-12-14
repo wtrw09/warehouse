@@ -243,7 +243,7 @@ async def get_outbound_order(
     )
 
 
-@outbound_orders_router.post("/", response_model=OutboundOrderResponse)
+@outbound_orders_router.post("", response_model=OutboundOrderResponse)
 async def create_outbound_order(
     order_data: OutboundOrderCreate,
     db: Session = Depends(get_db),
@@ -261,7 +261,44 @@ async def create_outbound_order(
     if not customer:
         raise HTTPException(status_code=400, detail="客户不存在")
     
-    # 开始事务
+    # 验证是否有明细项
+    if not order_data.items or len(order_data.items) == 0:
+        raise HTTPException(status_code=400, detail="出库单至少需要包含一个明细项")
+    
+    # 预验证所有明细数据，但不进行实际修改
+    validated_items = []
+    total_quantity = 0
+    
+    for item_data in order_data.items:
+        # 验证批次信息，并从批次获取器材信息
+        batch = db.get(InventoryBatch, item_data.batch_id)
+        if not batch:
+            raise HTTPException(status_code=400, detail=f"批次ID {item_data.batch_id} 不存在")
+        
+        # 从批次获取器材信息
+        material = db.get(Material, batch.material_id)
+        if not material:
+            raise HTTPException(status_code=400, detail=f"批次对应的器材不存在")
+        
+        # 验证库存数量是否足够
+        inventory_detail = db.exec(select(InventoryDetail).where(
+            InventoryDetail.batch_id == item_data.batch_id
+        )).first()
+        
+        if not inventory_detail or inventory_detail.quantity < item_data.quantity:
+            raise HTTPException(status_code=400, detail=f"器材 {material.material_name} 库存不足")
+        
+        # 存储验证通过的项信息，后续再进行实际处理
+        validated_items.append({
+            'item_data': item_data,
+            'batch': batch,
+            'material': material,
+            'inventory_detail': inventory_detail
+        })
+        
+        total_quantity += item_data.quantity
+    
+    # 开始事务，只有当所有明细都验证通过后才创建出库单
     try:
         # 创建出库单记录
         new_order = OutboundOrder(
@@ -269,6 +306,7 @@ async def create_outbound_order(
             requisition_reference=order_data.requisition_reference,
             customer_id=order_data.customer_id,
             customer_name=customer.customer_name,
+            total_quantity=total_quantity,  # 直接设置总数量
             creator=current_user.username,
             create_time=datetime.now()
         )
@@ -276,27 +314,12 @@ async def create_outbound_order(
         # 刷新以获取自动生成的order_id，但不提交事务
         db.flush()
         
-        total_quantity = 0
-        
-        # 创建出库单明细记录
-        for item_data in order_data.items:
-            # 验证批次信息，并从批次获取器材信息
-            batch = db.get(InventoryBatch, item_data.batch_id)
-            if not batch:
-                raise HTTPException(status_code=400, detail=f"批次ID {item_data.batch_id} 不存在")
-            
-            # 从批次获取器材信息
-            material = db.get(Material, batch.material_id)
-            if not material:
-                raise HTTPException(status_code=400, detail=f"批次对应的器材不存在")
-            
-            # 验证库存数量是否足够
-            inventory_detail = db.exec(select(InventoryDetail).where(
-                InventoryDetail.batch_id == item_data.batch_id
-            )).first()
-            
-            if not inventory_detail or inventory_detail.quantity < item_data.quantity:
-                raise HTTPException(status_code=400, detail=f"器材 {material.material_name} 库存不足")
+        # 处理已验证的明细记录
+        for validated in validated_items:
+            item_data = validated['item_data']
+            batch = validated['batch']
+            material = validated['material']
+            inventory_detail = validated['inventory_detail']
             
             # 创建出库明细记录
             new_item = OutboundOrderItem(
@@ -330,12 +353,6 @@ async def create_outbound_order(
                 creator=current_user.username
             )
             db.add(transaction)
-            
-            total_quantity += item_data.quantity
-        
-        # 更新出库单总数量
-        new_order.total_quantity = total_quantity
-        db.add(new_order)
         
         db.commit()
         db.refresh(new_order)
@@ -353,6 +370,7 @@ async def create_outbound_order(
         
     except Exception as e:
         db.rollback()
+        # 提供更详细的错误信息
         raise HTTPException(status_code=500, detail=f"创建出库单失败: {str(e)}")
 
 

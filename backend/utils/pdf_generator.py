@@ -313,8 +313,10 @@ class InboundOrderPDF(PDFGenerator):
             row_height = 16 if max_lines > 1 else 8
             
             # 检查是否需要换页（使用FPDF自动分页功能）
-            # 在换页之前，先检查当前页面是否有足够的空间显示签字区域（如果需要）
-            if self.get_y() + row_height > 297 - 30:  # A4纸高度297mm，底部边距30mm
+            # 在换页之前，先检查当前页面是否有足够的空间显示当前行和签字区域
+            # 签字区域高度约为18mm（5mm空行 + 8mm签字行 + 5mm空行）
+            signature_area_height = 18
+            if self.get_y() + row_height + signature_area_height > 297 - 15:  # A4纸高度297mm，底部边距15mm
                 # 当前页面空间不足，先添加签字区域再换页
                 self._add_signature_area_for_page()
                 self.add_page()
@@ -379,15 +381,22 @@ class InboundOrderPDF(PDFGenerator):
         return [12, 25, 30, 30, 12, 12, 18, 22, 15]
     
     def _add_total_row(self) -> None:
-        """添加合计行"""
-        # 检查是否需要换页（合计行需要2行，每行12mm高度）
+        """添加合计行并确保签字行空间"""
+        # 计算所需空间：合计行(2行) + 签字行
         total_row_height = 12 * 2 + 5  # 2行合计行 + 5mm间距
-        if self.get_y() + total_row_height > 297 - 15:  # A4纸高度297mm，底部边距15mm
+        signature_row_height = 25  # 签字行高度，增加余量确保完整显示
+        required_space = total_row_height + signature_row_height
+        
+        # 检查当前页剩余空间是否足够容纳合计行和签字行
+        if self.get_y() + required_space > 297 - 15:  # A4纸高度297mm，底部边距15mm
+            # 添加当前页签字行
+            self._add_signature_area_for_page()
+            # 新建页面
             self.add_page()
+            # 重置字体样式
+            self.set_font_by_name(self.default_fonts['table_header'], 10, 'B')
         
-        # 合计行
-        self.set_font_by_name(self.default_fonts['table_header'], 10, 'B')
-        
+        # 添加合计行
         # 使用与物品表格相同的列宽定义
         col_widths = self._get_table_col_widths()
         
@@ -428,7 +437,7 @@ class InboundOrderPDF(PDFGenerator):
     
     def _add_signature_area_for_page(self) -> None:
         # 签字位置 - 在表格下一行
-        self.ln(10)  # 空一行
+        self.ln(5)  # 空一行，减少间距
         
         # 签字行：审批人、经办人、保管员
         col_widths = [60, 60, 60]
@@ -441,7 +450,7 @@ class InboundOrderPDF(PDFGenerator):
         self.set_font_by_name(self.default_fonts['body'], 10)
         for i, label in enumerate(sign_labels):
             self.cell(col_widths[i], 8, label, 0, 0, 'L')
-        self.ln(10)
+        self.ln(5)  # 减少空行间距
     
     def _add_signature_area(self) -> None:
         """添加签字位置（最后一页使用）"""
@@ -870,6 +879,14 @@ class OutboundOrderPDF(PDFGenerator):
             
             # 在所有物品数据添加完成后，在最后一页添加合计行和签字区域
             self._add_total_row()
+            
+            # 确保最后一页有足够空间显示签字区域
+            # 检查是否需要换页来显示签字区域
+            signature_space_needed = 18 
+            if self.get_y() + signature_space_needed > 297 - 15:  # A4纸高度297mm，底部边距15mm
+                # 如果空间不足，添加一页再显示签字区域
+                self.add_page()
+            
             self._add_signature_area()
             
             self.output(filename)
@@ -944,6 +961,9 @@ class OutboundOrderPDF(PDFGenerator):
         # 表格内容
         self.set_font_by_name(self.default_fonts['table_body'], 10)
         
+        # 签字行所需最小空间：签字行高度 + 间距
+        signature_required_space = 18  # 与入库单保持一致的18mm空间
+        
         for idx, item in enumerate(self.items_data, 1):
             # 表格居中对齐
             total_width = sum(col_widths)
@@ -978,9 +998,9 @@ class OutboundOrderPDF(PDFGenerator):
             
             # 根据文字数量确定行高：如果需要显示两行，则高度为16，否则为8
             row_height = 16 if max_lines > 1 else 8
-            # 检查是否需要换页（使用FPDF自动分页功能）
-            # 在换页之前，先检查当前页面是否有足够的空间显示签字区域（如果需要）
-            if self.get_y() + row_height > 297 - 30:  # A4纸高度297mm，底部边距30mm
+            
+            # 更准确的分页检查：检查当前行和签字行所需空间
+            if self.get_y() + row_height + signature_required_space > 297 - 15:  # A4纸高度297mm，底部边距15mm
                 # 当前页面空间不足，先添加签字区域再换页
                 self._add_signature_area_for_page()
                 self.add_page()
@@ -1047,11 +1067,20 @@ class OutboundOrderPDF(PDFGenerator):
         return [12, 25, 30, 30, 12, 12, 18, 22, 15]
     
     def _add_total_row(self) -> None:
-        """添加合计行"""
-        # 检查是否需要换页（合计行需要2行，每行12mm高度）
+        """添加合计行并确保签字行空间"""
+        # 计算所需空间：合计行(2行) + 签字行
         total_row_height = 12 * 2 + 5  # 2行合计行 + 5mm间距
-        if self.get_y() + total_row_height > 297 - 15:  # A4纸高度297mm，底部边距15mm
+        signature_row_height = 18  # 与入库单保持一致的签字行高度
+        required_space = total_row_height + signature_row_height
+        
+        # 检查当前页剩余空间是否足够容纳合计行和签字行
+        if self.get_y() + required_space > 297 - 15:  # A4纸高度297mm，底部边距15mm
+            # 添加当前页签字行
+            self._add_signature_area_for_page()
+            # 新建页面
             self.add_page()
+            # 重置字体样式
+            self.set_font_by_name(self.default_fonts['table_header'], 10, 'B')
         
         # 合计行
         self.set_font_by_name(self.default_fonts['table_header'], 10, 'B')

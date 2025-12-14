@@ -29,7 +29,7 @@ export const inventoryDetailAPI = {
       delete filteredParams.equipment_id;
     }
     
-    const response = await api.get<PaginatedInventoryDetailsResponse>('/inventory-details/', { params: filteredParams });
+    const response = await api.get<PaginatedInventoryDetailsResponse>('/inventory-details', { params: filteredParams });
     return response.data;
   },
 
