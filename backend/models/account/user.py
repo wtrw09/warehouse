@@ -1,4 +1,4 @@
-from models import SQLModelBase
+from .. import SQLModelBase
 from sqlmodel import Field, Relationship
 from typing import TYPE_CHECKING
 

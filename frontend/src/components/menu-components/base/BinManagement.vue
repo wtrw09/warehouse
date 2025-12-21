@@ -180,11 +180,15 @@
           <el-table-column 
             prop="create_time" 
             label="创建时间" 
-            width="150" 
+            width="180" 
             align="center" 
             sortable="custom"
             :sort-orders="['ascending', 'descending']"
-          />
+          >
+            <template #default="{ row }">
+              {{ formatDate(row.create_time) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="creator" label="创建人" width="100" align="center" />
           <el-table-column label="操作" width="120" align="center" fixed="right" v-if="hasPermission('BASE-edit')">
             <template #default="{ row }">
@@ -689,6 +693,23 @@ const resetForm = () => {
     empty_label: true,
     bar_code: ''
   });
+};
+
+// 格式化日期时间到秒
+const formatDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } catch (err) {
+    return dateString;
+  }
 };
 
 onMounted(() => {

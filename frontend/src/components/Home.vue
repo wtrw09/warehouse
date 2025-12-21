@@ -257,12 +257,12 @@ const checkLoginStatus = async () => {
 };
 
 // 用户登出
-const handleLogout = () => {
+const handleLogout = async () => {
   try {
     // 停止服务器状态检测
     stopServerStatusCheck();
     
-    authAPI.logout();
+    await authAPI.logout();
     currentUser.value = null;
     menuStore.setCurrentUser(null);
     

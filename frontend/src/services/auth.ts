@@ -41,8 +41,12 @@ export const authAPI = {
   /**
    * 用户登出
    */
-  logout: (): void => {
-    localStorage.removeItem('token');
+  logout: async (): Promise<void> => {
+    try {
+      await api.post('/logout');
+    } finally {
+      localStorage.removeItem('token');
+    }
   },
   
   /**

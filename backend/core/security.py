@@ -269,6 +269,12 @@ ROUTE_PERMISSIONS: Dict[str, List[Permission]] = {
     "/api/backup/backups": [Permission.SYSTEM_READ],
     "/api/backup/history": [Permission.SYSTEM_READ],
     "/api/backup/cleanup": [Permission.SYSTEM_EDIT],
+    
+    # 登录记录查询
+    "/login-records": [Permission.AUTH_READ],
+    "/login-records/{record_id}": [Permission.AUTH_READ],
+    "/login-records/stats/summary": [Permission.AUTH_READ],
+    "/login-records/my": [Permission.AUTH_OWN],
 }
 
 def get_required_scopes_for_route(route_path: str) -> list:

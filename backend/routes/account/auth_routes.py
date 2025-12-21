@@ -8,6 +8,7 @@ from models.account.role import Role
 from schemas.account.user import UserResponse
 from core.security import get_password_hash, verify_password, create_access_token, get_current_active_user, get_current_user, get_required_scopes_for_route, SECRET_KEY, ALGORITHM
 from core.session_manager import session_manager
+from core.login_record_manager import get_login_record_manager
 from database import get_db
 from core.config import dynamic_settings
 
@@ -58,7 +59,7 @@ async def login_user(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    """OAuth2 密码模式登录接口，支持两种认证策略"""
+    """OAuth2 密码模式登录接口，支持两种认证策略，实现单IP登录限制"""
     # 查找用户并加载角色信息
     user = db.exec(select(User).join(Role).where(User.username == form_data.username)).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -67,6 +68,33 @@ async def login_user(
     # 获取客户端IP地址和User-Agent
     client_host = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "unknown")
+    
+    # 获取登录记录管理器
+    login_record_manager = get_login_record_manager()
+    
+    # 检查单IP登录限制
+    allow_login = await login_record_manager.check_single_ip_login(db, user.id, client_host)
+    
+    if not allow_login:
+        # 有其他IP的活跃会话，强制登出其他会话
+        logout_count = await login_record_manager.force_logout_other_sessions(db, user.id, client_host)
+        
+        # 如果使用滑动会话模式，还需要清理Redis会话
+        if dynamic_settings.AUTH_STRATEGY == "sliding_session" and logout_count > 0:
+            # 强制删除Redis中的其他会话
+            await session_manager.delete_session(user.username)
+        
+        # 返回警告信息
+        response_data = {
+            "access_token": None,
+            "token_type": "bearer",
+            "warning": f"检测到您在其他位置登录，已强制登出 {logout_count} 个会话，请重新登录"
+        }
+        
+        # 记录新的登录
+        await login_record_manager.record_login(db, user.id, user.username, client_host, user_agent)
+        
+        return response_data
     
     # 获取用户权限列表
     user_permissions = [perm.id for perm in user.role.permissions]
@@ -77,6 +105,9 @@ async def login_user(
         ip_address=client_host,
         user_permissions=user_permissions
     )
+    
+    # 记录登录
+    await login_record_manager.record_login(db, user.id, user.username, client_host, user_agent)
     
     # 根据认证策略处理会话管理
     response_data = {"access_token": access_token, "token_type": "bearer"}
@@ -233,14 +264,38 @@ async def refresh_token(
 
 @auth_router.post("/logout")
 async def logout_user(
-    current_user: Annotated[dict, Depends(get_current_user)]
+    request: Request,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Session = Depends(get_db)
 ):
     """用户登出接口"""
-    # 根据认证策略处理会话清理
-    if current_user.get("auth_strategy") == "sliding_session":
-        username = current_user.get("username")
-        if username:
-            # 删除会话
-            await session_manager.delete_session(username)
+    print(f"[DEBUG] logout_user - 开始处理登出请求")
+    username = current_user.get("username")
+    print(f"[DEBUG] logout_user - 当前用户: {username}")
     
+    if username:
+        # 根据认证策略处理会话清理
+        print(f"[DEBUG] logout_user - 认证策略: {dynamic_settings.AUTH_STRATEGY}")
+        if dynamic_settings.AUTH_STRATEGY == "sliding_session":
+            print(f"[DEBUG] logout_user - 调用delete_session方法")
+            # 删除Redis会话
+            result = await session_manager.delete_session(username)
+            print(f"[DEBUG] logout_user - delete_session返回结果: {result}")
+        
+        # 记录登出时间
+        login_record_manager = get_login_record_manager()
+        
+        # 查找用户ID
+        user = db.exec(select(User).where(User.username == username)).first()
+        if user:
+            print(f"[DEBUG] logout_user - 找到用户ID: {user.id}")
+            # 获取当前请求的IP地址
+            current_ip = request.client.host if request.client else "unknown"
+            await login_record_manager.record_logout(db, user.id, current_ip, username)
+        else:
+            print(f"[DEBUG] logout_user - 未找到用户")
+    else:
+        print(f"[DEBUG] logout_user - 用户名为空")
+    
+    print(f"[DEBUG] logout_user - 登出处理完成")
     return {"message": "登出成功"}

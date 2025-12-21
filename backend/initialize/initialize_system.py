@@ -7,10 +7,10 @@ import os
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlmodel import Session, select, text, SQLModel
+from sqlmodel import Session, select, text
 from models.system.system_init import SystemInit, SystemConfig
 from models.account.permission import Permission as PermissionModel
-from models.account.role import Role, RolePermissionLink
+from models.account.role import Role
 from models.base.major import Major
 from models.base.sub_major import SubMajor
 from models.base.equipment import Equipment

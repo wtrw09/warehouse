@@ -127,6 +127,7 @@ def init_db():
         InboundOrder, InboundOrderItem, InventoryBatch, InventoryDetail, InventoryTransaction, Material, OutboundOrder, OutboundOrderItem,
         MaterialCodeLevel, SystemInit
     )
+    from models.account.user_login_record import UserLoginRecord, UserLoginHistory
     
     # 创建新的元数据对象，只包含业务表
     business_metadata = MetaData()
@@ -136,7 +137,7 @@ def init_db():
         Permission, Role, User, RolePermissionLink,
         Bin, Customer, Equipment, Major, SubMajor, Supplier, Warehouse,
         InboundOrder, InboundOrderItem, InventoryBatch, InventoryDetail, InventoryTransaction, Material, OutboundOrder, OutboundOrderItem,
-        MaterialCodeLevel, SystemInit
+        MaterialCodeLevel, SystemInit, UserLoginRecord, UserLoginHistory
     ]:
         if hasattr(model, '__table__'):
             model.__table__.tometadata(business_metadata)

@@ -47,6 +47,15 @@
             >
               批量分配角色 ({{ selectedUsers.length }})
             </el-button>
+            
+            <!-- 查询登录信息按钮 -->
+            <el-button 
+              type="info" 
+              @click="handleViewLoginRecords"
+              :icon="DataAnalysis"
+            >
+              查询登录信息
+            </el-button>
           </div>
           <div class="right-actions">
             <el-text class="search-label">搜索：</el-text>
@@ -359,6 +368,21 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 登录记录查询弹窗 -->
+    <el-dialog
+      v-model="loginRecordDialog.visible"
+      :title="loginRecordDialog.title"
+      width="90%"
+      top="5vh"
+      :close-on-click-modal="false"
+      class="login-record-dialog"
+    >
+      <LoginRecordManagement 
+        :selected-username="loginRecordDialog.selectedUsername"
+        @close="loginRecordDialog.visible = false"
+      />
+    </el-dialog>
   </div>
 </template>
 
@@ -372,9 +396,11 @@ import {
   Edit, 
   Delete,
   UserFilled,
-  Key
+  Key,
+  DataAnalysis
 } from '@element-plus/icons-vue';
 import { userAPI, roleAPI } from '../../../services/api';
+import LoginRecordManagement from './LoginRecordManagement.vue';
 import type {
   UserManagementResponse,
   UserManagementCreate,
@@ -484,6 +510,13 @@ const batchForm = ref({
   role_id: undefined as any
 });
 
+// 登录记录查询对话框
+const loginRecordDialog = ref({
+  visible: false,
+  title: '所有用户登录记录',
+  selectedUsername: ''
+});
+
 const batchFormRef = ref<FormInstance>();
 const batchFormRules = {
   role_id: [
@@ -566,10 +599,10 @@ const loadUsers = async () => {
   
   try {
     const response = await userAPI.getUsers(searchParams.value);
-    userList.value = response.data;
+    userList.value = response.data || [];
     
     // 动态生成角色名称筛选器选项
-    const uniqueRoles = [...new Set(response.data.map(user => user.role_name))];
+    const uniqueRoles = [...new Set((response.data || []).map(user => user.role_name))];
     roleFilters.value = uniqueRoles.map(role => ({
       text: role,
       value: role
@@ -607,7 +640,7 @@ const loadRoles = async () => {
   
   try {
     const response = await roleAPI.getRoles({ page: 1, page_size: 100 });
-    availableRoles.value = response.data;
+    availableRoles.value = response.data || [];
   } catch (err: any) {
     console.error('加载角色列表失败:', err);
     ElMessage.error('加载角色列表失败');
@@ -876,6 +909,28 @@ const handleSavePassword = async () => {
   } finally {
     passwordDialog.value.loading = false;
   }
+};
+
+// 查询登录信息
+const handleViewLoginRecords = () => {
+  // 检查是否有查看登录记录的权限
+  if (!hasAuthReadPermission.value) {
+    ElMessage.warning('您没有足够的权限查看登录记录');
+    return;
+  }
+  
+  // 设置选中的用户名（如果有选中的用户）
+  if (selectedUsers.value.length === 1) {
+    const selectedUser = selectedUsers.value[0];
+    loginRecordDialog.value.selectedUsername = selectedUser.username;
+    loginRecordDialog.value.title = `用户 ${selectedUser.username} 的登录记录`;
+  } else {
+    loginRecordDialog.value.selectedUsername = '';
+    loginRecordDialog.value.title = '所有用户登录记录';
+  }
+  
+  // 打开登录记录弹窗
+  loginRecordDialog.value.visible = true;
 };
 
 // 保存批量操作

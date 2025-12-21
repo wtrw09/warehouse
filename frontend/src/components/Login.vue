@@ -175,18 +175,46 @@ onMounted(() => {
 });
 </script>
 
+<style>
+/* 全局样式重置，确保全屏显示 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+</style>
+
 <style scoped>
 /* 导入优化后的背景图片配置 */
 @import url('../assets/background/background-config.css');
 
 .login-container {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   align-items: center;
+  width: 100%;
+  height: 100%;
   min-height: 100vh;
   position: relative;
   z-index: 1;
-  padding-right: 15%;
+  margin: 0;
+  padding: 0 20px;
+  /* 将卡片定位到页面下1/3位置 */
+  margin-top: 66.67vh;
+  transform: translateY(-50%);
 }
 
 .login-slogan {
@@ -195,8 +223,8 @@ onMounted(() => {
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  color: #4794e6;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   z-index: 2;
   width: 100%;
 }
@@ -210,17 +238,22 @@ onMounted(() => {
 }
 
 .login-background-optimized {
+  width: 100vw;
+  height: 100vh;
   min-height: 100vh;
   position: relative;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .login-card {
   position: relative;
   z-index: 2;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(5px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
@@ -228,10 +261,10 @@ onMounted(() => {
   justify-content: center;
   font-size: 18px;
   font-weight: bold;
-  background-color: #409eff;
+  background-color: rgba(64, 158, 255, 0.3);
   color: white;
   padding: 12px 0;
-  margin: -20px -20px 0 -20px;
+  margin: -20px -20px -20px -20px;
 }
 
 /* 确保登录按钮居中的样式 */

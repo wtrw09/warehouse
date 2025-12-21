@@ -307,17 +307,63 @@ class SessionManager:
     async def delete_session(self, user_id: str) -> bool:
         """删除会话"""
         try:
+            print(f"[DEBUG] delete_session - 方法开始执行: user_id={user_id}")
             redis_client = await self.get_redis_client()
+            print(f"[DEBUG] delete_session - Redis客户端状态: {redis_client is not None}")
             
+            print(f"[DEBUG] delete_session - 开始删除会话: user_id={user_id}")
             if redis_client:
+                print(f"[DEBUG] delete_session - 使用Redis删除会话")
                 # Redis可用，从Redis删除会话
                 await redis_client.delete(self._get_session_key(user_id))
+                print(f"[DEBUG] delete_session - Redis会话删除完成")
             else:
+                print(f"[DEBUG] delete_session - 使用备选存储方案")
                 # Redis不可用，从备选存储删除会话
                 async with self._lock:
+                    print(f"[DEBUG] delete_session - 获取锁成功")
                     if user_id in self._fallback_sessions:
+                        print(f"[DEBUG] delete_session - 找到备选存储中的会话")
+                        # 在删除会话前，记录登出信息
+                        session_data = self._fallback_sessions[user_id]
+                        username = session_data.get("username", "")
+                        print(f"[DEBUG] delete_session - 会话中的用户名: {username}")
+                        
+                        # 记录登出时间到数据库
+                        if username:
+                            try:
+                                from database import get_db
+                                from core.login_record_manager import get_login_record_manager
+                                from sqlmodel import Session, select
+                                from models.account.user import User
+                                
+                                db = next(get_db())
+                                login_record_manager = get_login_record_manager()
+                                
+                                # 查找用户ID
+                                user = db.exec(select(User).where(User.username == username)).first()
+                                if user:
+                                    print(f"[DEBUG] delete_session - 找到用户ID: {user.id}")
+                                    # 获取当前会话的IP地址（从会话数据中）
+                                    session_ip = session_data.get("ip_address", None)
+                                    await login_record_manager.record_logout(db, user.id, session_ip, username)
+                                    print(f"[DEBUG] 备选存储方案 - 已记录用户登出: {username}")
+                                else:
+                                    print(f"[DEBUG] delete_session - 未找到用户")
+                                
+                                db.close()
+                            except Exception as db_error:
+                                print(f"[WARNING] 备选存储方案 - 记录登出信息失败: {db_error}")
+                        else:
+                            print(f"[DEBUG] delete_session - 会话中没有用户名")
+                        
+                        # 删除会话
                         del self._fallback_sessions[user_id]
+                        print(f"[DEBUG] delete_session - 备选存储会话删除完成")
+                    else:
+                        print(f"[DEBUG] delete_session - 备选存储中未找到会话")
             
+            print(f"[DEBUG] delete_session - 方法执行完成，返回True")
             return True
         except Exception as e:
             print(f"删除会话失败: {e}")

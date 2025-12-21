@@ -134,7 +134,7 @@ function showStatusNotification(status: RedisStatus, isPeriodicCheck: boolean = 
     } else {
       // 用户主动检查时的详细提示
       ElMessage.warning({
-        message: `Redis服务器当前不可用，已启用备选存储方案。${status.message || ''}`,
+        message: status.message || 'Redis服务器当前不可用，已启用备选存储方案。',
         showClose: true,
         duration: 8000
       })
@@ -144,7 +144,7 @@ function showStatusNotification(status: RedisStatus, isPeriodicCheck: boolean = 
     if (!isPeriodicCheck) {
       // 只在用户主动检查时显示成功消息
       ElMessage.success({
-        message: `Redis服务器连接正常。${status.message || ''}`,
+        message: status.message || 'Redis服务器连接正常。',
         showClose: true,
         duration: 5000
       })
@@ -152,10 +152,10 @@ function showStatusNotification(status: RedisStatus, isPeriodicCheck: boolean = 
   } else {
     // Redis连接失败时的提示
     ElMessage.error({
-      message: `Redis服务器连接失败。${status.message || ''}`,
-      showClose: true,
-      duration: 0 // 不自动关闭，需要用户手动关闭
-    })
+        message: status.message || 'Redis服务器连接失败。',
+        showClose: true,
+        duration: 0 // 不自动关闭，需要用户手动关闭
+      })
   }
 }
 

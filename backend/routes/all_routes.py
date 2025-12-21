@@ -47,6 +47,8 @@ from routes.system.system_status_routes import system_status_router
 from routes.system.backup_routes import backup_router
 # 导入主页仪表板路由
 from routes.system.dashboard_routes import dashboard_router
+# 导入登录记录查询路由
+from routes.account.login_record_routes import login_record_router
 
 router = APIRouter()
 
@@ -97,4 +99,6 @@ router.include_router(system_status_router)
 router.include_router(backup_router)
 # 包含主页仪表板路由
 router.include_router(dashboard_router)
+# 包含登录记录查询路由
+router.include_router(login_record_router)
 

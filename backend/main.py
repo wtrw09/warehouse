@@ -8,6 +8,7 @@ from initialize.initialize_system import initialize_all, is_system_initialized
 from core.font_config import setup_fonts_on_startup
 from core.logging_config import get_logger
 from backup.scheduled_backup import ScheduledBackupManager
+from core.scheduler import Scheduler
 
 # 获取应用程序日志记录器
 logger = get_logger(__name__)
@@ -17,6 +18,12 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI):
     # 检查系统初始化状态并执行完整初始化
     try:
+        # 从配置中加载数据库URL并设置
+        from core.config import settings
+        from database import set_database_url
+        set_database_url(settings.DATABASE_URL)
+        print(f"✓ 已设置数据库URL: {settings.DATABASE_URL}")
+        
         # 获取数据库引擎确保连接正常
         engine = get_engine()
         print("✓ 数据库引擎初始化成功")
@@ -56,6 +63,16 @@ async def lifespan(app: FastAPI):
         print(f"⚠ 定时备份调度器启动失败: {e}")
         logger.error(f"定时备份调度器启动异常: {e}")
     
+    # 启动定时任务管理器（登录记录清理等）
+    scheduler = None
+    try:
+        scheduler = Scheduler()
+        await scheduler.start()
+        print("✓ 定时任务管理器已启动")
+    except Exception as e:
+        print(f"⚠ 定时任务管理器启动失败: {e}")
+        logger.error(f"定时任务管理器启动异常: {e}")
+    
     # 程序运行中
     yield
     
@@ -67,6 +84,14 @@ async def lifespan(app: FastAPI):
             print("✓ 定时备份调度器已停止")
         except Exception as e:
             print(f"⚠ 停止定时备份调度器失败: {e}")
+    
+    # 停止定时任务管理器
+    if scheduler:
+        try:
+            await scheduler.stop()
+            print("✓ 定时任务管理器已停止")
+        except Exception as e:
+            print(f"⚠ 停止定时任务管理器失败: {e}")
 
 # 创建FastAPI应用并传入lifespan参数
 app = FastAPI(title="仓库管理系统", version="1.0", lifespan=lifespan)
