@@ -481,8 +481,16 @@ const handleExportExcel = async () => {
     link.href = url;
     
     // 从响应头中提取文件名，如果没有则使用默认文件名
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-    link.download = `库存器材明细_${timestamp}.xlsx`;
+    const timestamp = new Date().toLocaleString('zh-CN', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false 
+    }).replace(/[\/\s:]/g, '-').replace('--', '-');
+    link.download = `库存器材明细-${timestamp}.xlsx`;
     
     // 触发下载
     document.body.appendChild(link);

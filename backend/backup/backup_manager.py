@@ -101,6 +101,9 @@ class BackupManager:
                     # 这里使用默认描述，实际项目中应该从备份元数据中获取原始描述
                     file_info["description"] = f"{file_info['type']}备份 - {file_info['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}"
                     
+                    # 将timestamp转换为ISO格式字符串,确保前端能正确解析时区
+                    file_info["timestamp"] = file_info["timestamp"].isoformat()
+                    
                     backups.append(file_info)
         
         # 按时间戳排序

@@ -55,15 +55,15 @@ export const authAPI = {
    * @returns Promise<any>
    */
   register: async (userData: UserData): Promise<any> => {
-    // 创建FormData对象来提交表单数据
-    const formData = new FormData();
-    formData.append('username', userData.username);
-    formData.append('password', userData.password);
+    // 创建 URLSearchParams 对象来发送表单数据
+    const params = new URLSearchParams();
+    params.append('username', userData.username);
+    params.append('password', userData.password);
     if (userData.invitation_code) {
-      formData.append('invitation_code', userData.invitation_code);
+      params.append('invitation_code', userData.invitation_code);
     }
     
-    const response = await api.post('/register', formData, {
+    const response = await api.post('/register', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }

@@ -12,7 +12,7 @@ from schemas.material import (
     InboundOrderStatistics, OrderNumberUpdate, TransferNumberUpdate,
     SupplierUpdate, ContractNumberUpdate, InboundOrderItemUpdate,
     InboundOrderItemCreate, InboundOrderItemResponse, InboundOrderUpdate,
-    BatchCodeGenerateRequest, BatchCodeGenerateResponse
+    BatchCodeGenerateRequest, BatchCodeGenerateResponse, InboundCreateTimeUpdate
 )
 from models.material.inbound_order import InboundOrder
 from models.material.inbound_order_item import InboundOrderItem
@@ -699,41 +699,27 @@ async def update_contract_number(
     return {"message": "合同号修改成功", "new_contract_number": update_data.contract_reference}
 
 
-@inbound_orders_router.put("/{order_id}/update-inbound-date")
-async def update_inbound_date(
+@inbound_orders_router.put("/{order_id}/update-create-time")
+async def update_create_time(
     order_id: int,
-    update_data: InboundOrderUpdate,
+    update_data: InboundCreateTimeUpdate,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/inbound-orders/update-inbound-date"))
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/inbound-orders/update-create-time"))
 ):
-    """修改入库单入库日期"""
+    """修改入库单创建时间"""
     
     # 获取入库单
     order = db.get(InboundOrder, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="入库单不存在")
     
-    # 更新入库日期
-    if update_data.inbound_date is not None:
-        order.inbound_date = update_data.inbound_date
-    
-    # 更新其他字段（如果需要）
-    if update_data.requisition_reference is not None:
-        order.requisition_reference = update_data.requisition_reference
-    if update_data.contract_reference is not None:
-        order.contract_reference = update_data.contract_reference
-    if update_data.supplier_id is not None:
-        # 验证供应商存在
-        supplier = db.get(Supplier, update_data.supplier_id)
-        if not supplier:
-            raise HTTPException(status_code=400, detail="供应商不存在")
-        order.supplier_id = update_data.supplier_id
-        order.supplier_name = supplier.supplier_name
+    # 更新创建时间
+    order.create_time = update_data.create_time
     
     db.commit()
     
-    return {"message": "入库单信息修改成功", "updated_fields": {
-        "inbound_date": update_data.inbound_date
+    return {"message": "创建时间修改成功", "updated_fields": {
+        "create_time": update_data.create_time
     }}
 
 
@@ -1446,4 +1432,87 @@ async def generate_inbound_order_pdf_route(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成PDF失败: {str(e)}")
+
+
+@inbound_orders_router.get("/excel/{order_number}")
+async def generate_inbound_order_excel_route(
+    order_number: str,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/inbound-orders/excel"))
+):
+    """生成入库单Excel文件"""
+    
+    try:
+        from utils.excel_generator import generate_inbound_order_excel
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"开始生成入库单Excel: {order_number}")
+        
+        # 查询入库单基本信息
+        order = db.exec(select(InboundOrder).where(InboundOrder.order_number == order_number)).first()
+        if not order:
+            raise HTTPException(status_code=404, detail="入库单不存在")
+        
+        # 查询入库单明细
+        items_query = select(InboundOrderItem).where(InboundOrderItem.order_id == order.order_id)
+        items = db.exec(items_query).all()
+        
+        # 构建订单数据
+        order_data = {
+            'order_number': order.order_number,
+            'supplier_name': order.supplier_name,
+            'inbound_date': order.create_time.strftime('%Y-%m-%d'),
+            'creator': order.creator
+        }
+        
+        # 构建明细数据
+        items_data = []
+        for item in items:
+            items_data.append({
+                'material_code': item.material_code,
+                'material_name': item.material_name,
+                'material_specification': item.material_specification or '',
+                'unit': item.unit,
+                'quantity': item.quantity,
+                'unit_price': item.unit_price
+            })
+        
+        # 生成Excel文件
+        excel_filename = f"inbound_order_{order_number}.xlsx"
+        logger.info(f"准备生成Excel文件: {excel_filename}")
+        success = generate_inbound_order_excel(order_data, items_data, excel_filename)
+        
+        if not success:
+            logger.error(f"Excel生成失败: {excel_filename}")
+            raise HTTPException(status_code=500, detail="Excel生成失败")
+        
+        logger.info(f"Excel文件生成成功: {excel_filename}")
+        
+        # 读取Excel文件内容
+        with open(excel_filename, 'rb') as excel_file:
+            excel_content = excel_file.read()
+        
+        # 删除临时文件
+        os.remove(excel_filename)
+        logger.info(f"临时文件已删除: {excel_filename}")
+        
+        # 返回Excel文件
+        return Response(
+            content=excel_content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={excel_filename}",
+                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except FileNotFoundError as e:
+        logger.error(f"Excel模板文件不存在: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Excel模板文件不存在: {str(e)}")
+    except Exception as e:
+        logger.error(f"生成Excel失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成Excel失败: {str(e)}")
 

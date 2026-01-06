@@ -226,7 +226,7 @@ ROUTE_PERMISSIONS: Dict[str, List[Permission]] = {
     "/inbound-orders/update-transfer-number": [Permission.IO_EDIT],
     "/inbound-orders/update-supplier": [Permission.IO_EDIT],
     "/inbound-orders/update-contract-number": [Permission.IO_EDIT],
-    "/inbound-orders/update-inbound-date": [Permission.IO_EDIT],
+    "/inbound-orders/update-create-time": [Permission.IO_EDIT],
     "/inbound-orders/items/new": [Permission.IO_EDIT],
     "/inbound-orders/items/update": [Permission.IO_EDIT],
     "/inbound-orders/items/delete": [Permission.IO_EDIT],
@@ -234,6 +234,7 @@ ROUTE_PERMISSIONS: Dict[str, List[Permission]] = {
     "/inbound-orders/generate-batch-code": [Permission.IO_EDIT],
     "/inbound-orders/suppliers": [Permission.IO_READ],
     "/inbound-orders/pdf": [Permission.IO_EDIT],
+    "/inbound-orders/excel": [Permission.IO_EDIT],
     
     # 出库单管理
     "/outbound-orders": [Permission.IO_READ],
@@ -251,6 +252,7 @@ ROUTE_PERMISSIONS: Dict[str, List[Permission]] = {
     "/outbound-orders/generate-order-number": [Permission.IO_EDIT],
     "/outbound-orders/customers": [Permission.IO_READ],
     "/outbound-orders/pdf": [Permission.IO_EDIT],
+    "/outbound-orders/excel": [Permission.IO_EDIT],
     
     # 库存器材明细查询
     "/inventory-details": [Permission.STOCK_READ],

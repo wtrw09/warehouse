@@ -27,6 +27,7 @@ from .inbound_order import (
     TransferNumberUpdate,
     SupplierUpdate,
     ContractNumberUpdate,
+    InboundCreateTimeUpdate,
     InboundOrderItemUpdate
 )
 
@@ -80,6 +81,7 @@ __all__ = [
     "TransferNumberUpdate",
     "SupplierUpdate",
     "ContractNumberUpdate",
+    "InboundCreateTimeUpdate",
     "InboundOrderItemUpdate",
     "OutboundOrderItemCreate",
     "OutboundOrderCreate",

@@ -154,6 +154,12 @@ api.interceptors.response.use(
       const errorDetail = error.response?.data?.detail || '';
       const errorCode = error.response?.headers?.['x-error-code'] || '';
       
+      // 检查是否为库存不足错误（需要本地处理，不显示全局错误）
+      const isStockError = errorDetail.includes('库存不足') || 
+                          errorDetail.includes('库存') ||
+                          errorCode.includes('STOCK') ||
+                          errorCode.includes('INVENTORY');
+      
       // 只有认证相关的500错误才需要退出登录
       const isAuthError = errorDetail.includes('认证') || 
                          errorDetail.includes('token') || 
@@ -176,8 +182,8 @@ api.interceptors.response.use(
         
         // 跳转到登录页面
         router.push('/login');
-      } else if (!handleErrorLocally) {
-        // 只有在不需要本地处理错误的情况下，才显示全局错误消息
+      } else if (!handleErrorLocally && !isStockError) {
+        // 只有在不需要本地处理错误且不是库存不足错误的情况下，才显示全局错误消息
         ElMessage.error('服务器内部错误，请稍后重试或联系管理员');
       }
       

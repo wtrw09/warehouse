@@ -175,7 +175,7 @@
               size="small"
               controls-position="right"
               @change="handleQuantityChange($index)"
-              :class="{ 'insufficient-stock': row.batch_id && !checkStockSufficient(row.batch_id, row.quantity) }"
+              :class="{ 'insufficient-stock': row.batch_id && !checkStockSufficient(row.batch_id, row.quantity, $index) }"
               style="width: 100%"
               :disabled="props.readonly"
             />
@@ -403,7 +403,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 // 定义组件属性
 interface Props {
@@ -430,11 +430,26 @@ import type {
 } from '@/services/types/outbound';
 import type { InventoryDetailResponse } from '@/services/types/inventory_detail';
 import type { CustomerResponse } from '@/services/types/customer';
+import { saveDraft, loadDraft, clearDraft, hasDraft, getDraftTimestamp, formatDraftTime } from '@/utils/draftManager';
 
 const isEdit = ref(false);
 const orderId = ref<number | null>(null);
 const saving = ref(false);
 const materialDrawerVisible = ref(false);
+
+// 草稿管理相关常量
+const DRAFT_KEY = 'outbound_order_draft';
+
+// 草稿数据接口
+interface OutboundOrderDraftData {
+  orderForm: {
+    order_number: string;
+    requisition_reference: string;
+    customer_id: number | null;
+    outbound_date: string;
+  };
+  orderItems: ExtendedOutboundOrderItem[];
+}
 
 // 出库明细（扩展类型以包含显示所需的器材信息）
 interface ExtendedOutboundOrderItem extends OutboundOrderItemCreate {
@@ -514,6 +529,11 @@ const loadOrderDetail = async () => {
       updateStockManagementForEdit();
     }
     
+    // 编辑模式下清除草稿（如果有）
+    if (hasDraft(DRAFT_KEY)) {
+      clearDraft(DRAFT_KEY);
+    }
+    
   } catch (error: any) {
     // 显示具体的错误原因
     const errorMessage = error.response?.data?.message || error.message || '加载出库单详情失败';
@@ -587,7 +607,44 @@ const generateOrderNumber = async () => {
 };
 
 // 重置表单
-const resetForm = () => {
+const resetForm = async () => {
+  // 新增模式：先检查是否有草稿
+  if (hasDraft(DRAFT_KEY)) {
+    try {
+      // 获取草稿时间戳
+      const timestamp = getDraftTimestamp(DRAFT_KEY);
+      const timeText = timestamp ? formatDraftTime(timestamp) : '未知时间';
+      
+      // 询问用户是否恢复草稿
+      await ElMessageBox.confirm(
+        `检测到未保存的草稿（保存于${timeText}），是否恢复？`,
+        '发现草稿',
+        {
+          confirmButtonText: '恢复草稿',
+          cancelButtonText: '放弃草稿',
+          type: 'info',
+          distinguishCancelAndClose: true
+        }
+      );
+      
+      // 用户点击"恢复草稿"按钮，对话框已自动关闭
+      const draftData = loadDraft<OutboundOrderDraftData>(DRAFT_KEY);
+      if (draftData) {
+        // 恢复表单数据
+        Object.assign(orderForm, draftData.orderForm);
+        // 恢复明细数据
+        orderItems.value = draftData.orderItems;
+        ElMessage.success('草稿已恢复');
+        return; // 恢复草稿后直接返回，不执行后续重置逻辑
+      }
+    } catch (error) {
+      // 用户点击"放弃草稿"或关闭对话框，对话框已自动关闭
+      clearDraft(DRAFT_KEY);
+      // 继续执行下面的重置逻辑
+    }
+  }
+  
+  // 没有草稿或用户选择放弃草稿，执行正常重置逻辑
   // 重置表单数据
   Object.assign(orderForm, {
     order_number: '',
@@ -637,6 +694,20 @@ watch([() => props.editId, () => props.readonly], ([newEditId, newReadonly]) => 
   }
 }, { immediate: true });
 
+// 监听表单数据变化，自动保存草稿（仅新增模式）
+watch(() => orderForm, () => {
+  if (!isEdit.value) {
+    saveDraftDebounced();
+  }
+}, { deep: true });
+
+// 监听明细数据变化，自动保存草稿（仅新增模式）
+watch(() => orderItems.value, () => {
+  if (!isEdit.value) {
+    saveDraftDebounced();
+  }
+}, { deep: true });
+
 const orderFormRef = ref();
 const orderRules = {
   order_number: [{ required: true, message: '请输入出库单号', trigger: 'change' }],
@@ -654,7 +725,8 @@ const totalQuantity = computed(() => {
 // 计算总金额
 const totalAmount = computed(() => {
   return orderItems.value.reduce((sum, item) => {
-    return sum + (item.quantity * (item.unit_price || 0));
+    const amount = (item.quantity || 0) * (item.unit_price || 0);
+    return Number((sum + amount).toFixed(3));
   }, 0);
 });
 
@@ -738,14 +810,20 @@ const updateStockOnRemove = (batchId: number, quantity: number) => {
 };
 
 // 检查库存是否充足
-const checkStockSufficient = (batchId: number, quantity: number): boolean => {
+const checkStockSufficient = (batchId: number, quantity: number, currentIndex?: number): boolean => {
   const stockInfo = stockManagement.value.get(batchId);
   console.log('库存信息:', batchId, stockInfo?.available_quantity, '原始库存:', stockInfo?.original_quantity, '输入数量', quantity);
   if (!stockInfo) {
     return false;
   }
-  // 检查输入数量是否超过可用库存，并且不能超过原始库存
-  return quantity <= stockInfo.original_quantity;
+  
+  // 计算当前批次在出库明细中的其他项的总数量（不包括当前正在检查的项）
+  const otherItemsQuantity = orderItems.value
+    .filter((item, index) => item.batch_id === batchId && index !== currentIndex)
+    .reduce((sum, item) => sum + (item.quantity || 0), 0);
+  
+  // 检查：当前输入数量 + 其他明细项的数量 <= 原始库存
+  return (quantity + otherItemsQuantity) <= stockInfo.original_quantity;
 };
 
 // 获取可用库存数量
@@ -795,6 +873,47 @@ const getQuantityTagType = (quantity: number): string => {
     return 'danger';
   }
 };
+
+// 草稿自动保存方法
+const saveDraftData = () => {
+  // 仅在新增模式下保存草稿
+  if (!isEdit.value) {
+    // 判断是否有有效的用户输入（不仅仅是自动生成的单号和日期）
+    const hasValidInput = 
+      orderForm.customer_id !== null ||  // 有客户选择
+      orderForm.requisition_reference !== '' ||  // 有调拨单号
+      orderItems.value.length > 0;  // 有明细数据
+    
+    // 只有存在有效用户输入时才保存草稿
+    if (hasValidInput) {
+      const draftData: OutboundOrderDraftData = {
+        orderForm: {
+          order_number: orderForm.order_number,
+          requisition_reference: orderForm.requisition_reference,
+          customer_id: orderForm.customer_id,
+          outbound_date: orderForm.outbound_date
+        },
+        orderItems: orderItems.value
+      };
+      saveDraft(DRAFT_KEY, draftData);
+    } else {
+      // 没有有效输入，清除可能存在的草稿
+      clearDraft(DRAFT_KEY);
+    }
+  }
+};
+
+// 防抖函数
+const debounce = <T extends (...args: any[]) => any>(func: T, delay: number): T => {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return ((...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(null, args), delay);
+  }) as T;
+};
+
+// 防抖保存草稿（500ms）
+const saveDraftDebounced = debounce(saveDraftData, 500);
 
 // 获取客户列表
 const getCustomers = async () => {
@@ -1081,15 +1200,41 @@ const addMaterialItem = async (material: InventoryDetailResponse & { addQuantity
       ElMessage.success(`已存在相同批次号器材，数量已合并：${existingItem.quantity} + ${material.addQuantity} = ${newQuantity}`);
       
       // 如果是编辑模式，实时更新明细项数量
-      if (isEdit.value && orderId.value && material.batch_id !== undefined) {
+      if (isEdit.value && orderId.value && material.detail_id !== undefined) {
         try {
-          await outboundOrderAPI.updateOutboundOrderItem(orderId.value, material.batch_id, {
+          await outboundOrderAPI.updateOutboundOrderItem(orderId.value, material.detail_id, {
+            batch_id: material.batch_id,
             quantity: newQuantity
           });
         } catch (error: any) {
-          // 显示具体的错误原因
-          const errorMessage = error.response?.data?.message || error.message || '器材数量更新失败';
-          ElMessage.error(`器材数量更新失败: ${errorMessage}`);
+          // 优先处理detail字段中的详细信息
+          if (error.response?.data?.detail) {
+            const detail = error.response.data.detail;
+            let errorMessage = '器材数量更新失败';
+            
+            // 判断detail是字符串还是对象
+            if (typeof detail === 'string') {
+              // detail是字符串，直接显示
+              errorMessage = detail;
+            } else if (typeof detail === 'object' && detail !== null) {
+              // detail是对象，处理message字段和problematic_items
+              errorMessage = detail.message || '器材数量更新失败';
+              
+              // 如果有问题器材列表，添加到错误信息中
+              if (detail.problematic_items && detail.problematic_items.length > 0) {
+                errorMessage += '\n\n无法更新数量，原因：\n';
+                detail.problematic_items.forEach((problem: any) => {
+                  errorMessage += `- ${problem.reason || '未知原因'}\n`;
+                });
+              }
+            }
+            
+            ElMessage.error(errorMessage);
+          } else {
+            // 如果没有detail字段，使用原来的逻辑
+            const errorMessage = error.response?.data?.message || error.message || '器材数量更新失败';
+            ElMessage.error(`器材数量更新失败: ${errorMessage}`);
+          }
           return;
         }
       }
@@ -1214,12 +1359,18 @@ const emit = defineEmits<{
 
 // 返回出库单列表
 const handleBack = () => {
-  // 触发返回事件
+  // 新增模式：草稿已自动保存，直接返回即可
+  // 下次进入新建页面时会提示恢复草稿
   emit('back');
 };
 
 // 出库单号变更处理（实时保存）
 const handleOrderNumberChange = async () => {
+  // 如果是由日期变更触发的单号更新，不执行后续逻辑
+  if (isDateTriggeringOrderNumber.value) {
+    return;
+  }
+  
   if (isEdit.value && orderId.value && orderForm.order_number) {
     // 检查出库单号是否真的发生了更改
     if (orderForm.order_number === originalOrderForm.order_number) {
@@ -1316,8 +1467,16 @@ const handleTransferNumberChange = async () => {
   }
 };
 
+// 标记：是否由出库日期变更触发的单号更新（防止递归）
+const isDateTriggeringOrderNumber = ref(false);
+
 // 出库日期变更处理（实时保存）
 const handleOutboundDateChange = async () => {
+  // 同步更新出库单号中的日期部分
+  if (orderForm.outbound_date && orderForm.order_number) {
+    updateOrderNumberDate(orderForm.outbound_date);
+  }
+  
   if (isEdit.value && orderId.value && orderForm.outbound_date) {
     // 检查出库日期是否真的发生了更改
     if (orderForm.outbound_date === originalOrderForm.outbound_date) {
@@ -1357,6 +1516,69 @@ const handleOutboundDateChange = async () => {
   }
 };
 
+// 更新出库单号中的日期部分
+const updateOrderNumberDate = async (newDate: string) => {
+  if (!orderForm.order_number || isDateTriggeringOrderNumber.value) {
+    return;
+  }
+  
+  // 出库单号格式: CK20231225-001
+  // 匹配格式: CK + 8位数字(YYYYMMDD) + - + 3位数字
+  const orderNumberPattern = /^(CK)(\d{8})(-.+)$/;
+  const match = orderForm.order_number.match(orderNumberPattern);
+  
+  if (match) {
+    // 将日期格式从 YYYY-MM-DD 转换为 YYYYMMDD
+    const dateStr = newDate.replace(/-/g, '');
+    
+    // 检查日期格式是否正确（8位数字）
+    if (dateStr.length === 8 && /^\d{8}$/.test(dateStr)) {
+      try {
+        // 设置标记，防止触发handleOrderNumberChange
+        isDateTriggeringOrderNumber.value = true;
+        
+        // 调用后端API重新生成出库单号，避免重复单号
+        const response = await outboundOrderAPI.generateOutboundOrderNumber(dateStr);
+        const newOrderNumber = response.order_number;
+        
+        orderForm.order_number = newOrderNumber;
+        
+        // 如果是编辑模式，需要调用API将新单号写入数据库
+        if (isEdit.value && orderId.value) {
+          try {
+            await outboundOrderAPI.updateOrderNumber(orderId.value, { order_number: newOrderNumber });
+            // 数据库更新成功后，同步更新原始值
+            originalOrderForm.order_number = newOrderNumber;
+            ElMessage.success('出库单号已更新');
+          } catch (updateError: any) {
+            // 数据库更新失败，恢复原单号
+            const updateErrorMessage = updateError.response?.data?.message || updateError.message || '出库单号写入数据库失败';
+            ElMessage.error(`出库单号更新失败: ${updateErrorMessage}`);
+            // 恢复原单号
+            orderForm.order_number = originalOrderForm.order_number;
+          }
+        } else {
+          // 新增模式，只更新前端表单
+          originalOrderForm.order_number = newOrderNumber;
+        }
+        
+        // 延迟重置标记
+        setTimeout(() => {
+          isDateTriggeringOrderNumber.value = false;
+        }, 100);
+      } catch (error: any) {
+        // 如果API调用失败，显示错误但不影响日期更新
+        console.error('重新生成出库单号失败:', error);
+        const errorMessage = error.response?.data?.message || error.message || '重新生成出库单号失败';
+        ElMessage.warning(`出库单号更新失败: ${errorMessage}，请手动修改`);
+        
+        // 重置标记
+        isDateTriggeringOrderNumber.value = false;
+      }
+    }
+  }
+};
+
 
 // 数量变更处理（实时更新）
 const handleQuantityChange = async (index: number) => {
@@ -1370,7 +1592,8 @@ const handleQuantityChange = async (index: number) => {
     }
     
     try {
-      await outboundOrderAPI.updateOutboundOrderItem(orderId.value, item.batch_id, {
+      await outboundOrderAPI.updateOutboundOrderItem(orderId.value, item.detail_id!, {
+        batch_id: item.batch_id,
         quantity: item.quantity
       });
       
@@ -1448,6 +1671,8 @@ const handleSave = async () => {
       // 新增出库单
       await outboundOrderAPI.createOutboundOrder(orderData);
       ElMessage.success('出库单创建成功');
+      // 保存成功后清除草稿
+      clearDraft(DRAFT_KEY);
     }
     
     // 保存成功后立即触发保存事件
@@ -1518,8 +1743,16 @@ onMounted(() => {
 }
 
 :deep(.el-input-number.insufficient-stock .el-input__wrapper) {
-  border-color: #f56c6c !important;
-  box-shadow: 0 0 0 1px #f56c6c !important;
+  border: 1px solid #f56c6c !important;
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+/* 确保聚焦状态下也显示红色边框 */
+:deep(.el-input-number.insufficient-stock .el-input__wrapper:hover),
+:deep(.el-input-number.insufficient-stock .el-input__wrapper:focus),
+:deep(.el-input-number.insufficient-stock.is-focus .el-input__wrapper) {
+  border: 1px solid #f56c6c !important;
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
 }
 
 /* 使用现代Sass混入 */

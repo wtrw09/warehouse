@@ -87,6 +87,10 @@ async def get_inventory_details(
             .join(Supplier, InventoryBatch.supplier_id == Supplier.id, isouter=True)
         )
         
+        # 添加过滤条件：排除已删除的记录
+        query = query.where(Material.is_delete != True)
+        query = query.where(InventoryBatch.is_delete != True)
+        
         # 应用查询条件
         if keyword and keyword.strip():
             keywords = [k.strip().lower() for k in keyword.split() if k.strip()]
@@ -134,14 +138,8 @@ async def get_inventory_details(
             query = query.where(Material.equipment_id.in_(equipment_id))
         
         if warehouse_id:
-            # 当使用外连接时，需要特殊处理warehouse_id过滤
-            # 使用or_条件，当记录没有货位信息或货位属于指定仓库时都应匹配
-            query = query.where(
-                or_(
-                    InventoryDetail.bin_id.is_(None),
-                    Warehouse.id == warehouse_id
-                )
-            )
+            # 只有当记录有货位信息且货位属于指定仓库时才匹配
+            query = query.where(Warehouse.id == warehouse_id)
         
         if bin_id:
             query = query.where(InventoryDetail.bin_id == bin_id)
@@ -221,6 +219,7 @@ async def get_all_inventory_details(
     equipment_id: Optional[List[int]] = Query(None, description="装备ID数组，支持多选"),
     warehouse_id: Optional[int] = Query(None, description="仓库ID"),
     bin_id: Optional[int] = Query(None, description="货位ID"),
+    quantity_filter: Optional[str] = Query(None, description="库存数量筛选：'has_stock'（有库存），'no_stock'（无库存），None（全部）"),
     sort_by: str = Query("material_code", description="排序字段"),
     sort_order: str = Query("asc", description="排序方向（asc/desc）"),
     db: Session = Depends(get_db),
@@ -318,6 +317,13 @@ async def get_all_inventory_details(
         
         if bin_id:
             query = query.where(InventoryDetail.bin_id == bin_id)
+        
+        # 应用库存数量筛选
+        if quantity_filter:
+            if quantity_filter == "has_stock":
+                query = query.where(InventoryDetail.quantity > 0)
+            elif quantity_filter == "no_stock":
+                query = query.where(InventoryDetail.quantity == 0)
         
         # 应用排序
         if sort_order.lower() == "desc":
@@ -601,6 +607,7 @@ async def export_inventory_details_to_excel(
     equipment_id: Optional[List[int]] = Query(None, description="装备ID数组，支持多选"),
     warehouse_id: Optional[int] = Query(None, description="仓库ID"),
     bin_id: Optional[int] = Query(None, description="货位ID"),
+    quantity_filter: Optional[str] = Query(None, description="库存数量筛选：'has_stock'（有库存），'no_stock'（无库存），None（全部）"),
     sort_by: str = Query("material_code", description="排序字段"),
     sort_order: str = Query("asc", description="排序方向（asc/desc）"),
     db: Session = Depends(get_db),
@@ -640,8 +647,8 @@ async def export_inventory_details_to_excel(
             )
             .join(InventoryBatch, InventoryDetail.batch_id == InventoryBatch.batch_id)
             .join(Material, InventoryBatch.material_id == Material.id)
-            .join(Bin, InventoryDetail.bin_id == Bin.id)
-            .join(Warehouse, Bin.warehouse_id == Warehouse.id)
+            .join(Bin, InventoryDetail.bin_id == Bin.id, isouter=True)
+            .join(Warehouse, Bin.warehouse_id == Warehouse.id, isouter=True)
             .join(Major, Material.major_id == Major.id, isouter=True)
             .join(Equipment, Material.equipment_id == Equipment.id, isouter=True)
             .join(Supplier, InventoryBatch.supplier_id == Supplier.id, isouter=True)
@@ -699,6 +706,13 @@ async def export_inventory_details_to_excel(
         if bin_id:
             query = query.where(InventoryDetail.bin_id == bin_id)
         
+        # 应用库存数量筛选
+        if quantity_filter:
+            if quantity_filter == "has_stock":
+                query = query.where(InventoryDetail.quantity > 0)
+            elif quantity_filter == "no_stock":
+                query = query.where(InventoryDetail.quantity == 0)
+        
         # 应用排序
         if sort_order.lower() == "desc":
             query = query.order_by(getattr(Material, sort_by).desc(), InventoryBatch.batch_number.asc())
@@ -707,6 +721,9 @@ async def export_inventory_details_to_excel(
         
         # 执行查询
         results = db.exec(query).all()
+        
+        # 调试：打印查询结果数量
+        print(f"导出查询结果数量: {len(results)}")
         
         # 创建Excel工作簿（使用openpyxl替代xlwt）
         workbook = openpyxl.Workbook()
@@ -736,31 +753,57 @@ async def export_inventory_details_to_excel(
             worksheet.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 15
         
         # 设置数据样式
-        data_alignment = Alignment(vertical='center', wrap_text=True)
+        data_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        
+        # 调试：打印查询结果的字段
+        if results:
+            print(f"查询结果字段: {results[0]._fields if hasattr(results[0], '_fields') else 'No _fields attribute'}")
+            print(f"查询结果类型: {type(results[0])}")
         
         # 填充数据
         for row_idx, row in enumerate(results, start=2):
             worksheet.cell(row=row_idx, column=1, value=row.detail_id).border = thin_border
+            worksheet.cell(row=row_idx, column=1).alignment = data_alignment
             worksheet.cell(row=row_idx, column=2, value=row.batch_id).border = thin_border
+            worksheet.cell(row=row_idx, column=2).alignment = data_alignment
             worksheet.cell(row=row_idx, column=3, value=row.material_id).border = thin_border
+            worksheet.cell(row=row_idx, column=3).alignment = data_alignment
             worksheet.cell(row=row_idx, column=4, value=row.material_code or '').border = thin_border
+            worksheet.cell(row=row_idx, column=4).alignment = data_alignment
             worksheet.cell(row=row_idx, column=5, value=row.material_name or '').border = thin_border
+            worksheet.cell(row=row_idx, column=5).alignment = data_alignment
             worksheet.cell(row=row_idx, column=6, value=row.material_specification or '').border = thin_border
+            worksheet.cell(row=row_idx, column=6).alignment = data_alignment
             worksheet.cell(row=row_idx, column=7, value=row.batch_number or '').border = thin_border
+            worksheet.cell(row=row_idx, column=7).alignment = data_alignment
             worksheet.cell(row=row_idx, column=8, value=row.quantity or 0).border = thin_border
+            worksheet.cell(row=row_idx, column=8).alignment = data_alignment
             worksheet.cell(row=row_idx, column=9, value=row.unit or '').border = thin_border
+            worksheet.cell(row=row_idx, column=9).alignment = data_alignment
             worksheet.cell(row=row_idx, column=10, value=float(row.unit_price or 0)).border = thin_border
+            worksheet.cell(row=row_idx, column=10).alignment = data_alignment
             worksheet.cell(row=row_idx, column=11, value=row.supplier_name or '').border = thin_border
+            worksheet.cell(row=row_idx, column=11).alignment = data_alignment
             worksheet.cell(row=row_idx, column=12, value=row.production_date.strftime('%Y-%m-%d') if row.production_date else '').border = thin_border
+            worksheet.cell(row=row_idx, column=12).alignment = data_alignment
             worksheet.cell(row=row_idx, column=13, value=row.inbound_date.strftime('%Y-%m-%d') if row.inbound_date else '').border = thin_border
+            worksheet.cell(row=row_idx, column=13).alignment = data_alignment
             worksheet.cell(row=row_idx, column=14, value=row.major_id or '').border = thin_border
+            worksheet.cell(row=row_idx, column=14).alignment = data_alignment
             worksheet.cell(row=row_idx, column=15, value=row.major_name or '').border = thin_border
+            worksheet.cell(row=row_idx, column=15).alignment = data_alignment
             worksheet.cell(row=row_idx, column=16, value=row.equipment_id or '').border = thin_border
+            worksheet.cell(row=row_idx, column=16).alignment = data_alignment
             worksheet.cell(row=row_idx, column=17, value=row.equipment_name or '').border = thin_border
+            worksheet.cell(row=row_idx, column=17).alignment = data_alignment
             worksheet.cell(row=row_idx, column=18, value=row.equipment_specification or '').border = thin_border
+            worksheet.cell(row=row_idx, column=18).alignment = data_alignment
             worksheet.cell(row=row_idx, column=19, value=row.bin_name or '').border = thin_border
+            worksheet.cell(row=row_idx, column=19).alignment = data_alignment
             worksheet.cell(row=row_idx, column=20, value=row.warehouse_name or '').border = thin_border
+            worksheet.cell(row=row_idx, column=20).alignment = data_alignment
             worksheet.cell(row=row_idx, column=21, value=row.last_updated.strftime('%Y-%m-%d %H:%M:%S') if row.last_updated else '').border = thin_border
+            worksheet.cell(row=row_idx, column=21).alignment = data_alignment
         
         # 创建内存文件流
         file_stream = io.BytesIO()

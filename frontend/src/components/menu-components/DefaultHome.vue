@@ -230,7 +230,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick, inject } from 'vue';
+import { ref, onMounted, nextTick, onBeforeUnmount } from 'vue';
 import { dashboardAPI } from '../../services';
 import type { 
   DashboardStatistics, 
@@ -240,13 +240,82 @@ import type {
 } from '../../services/system/dashboard';
 import * as echarts from 'echarts';
 import {
-  Calendar, Sunny, Moon, Download, Upload, Box, Warning,
+  Download, Upload, Box, Warning,
   ArrowUp, ArrowDown, Minus, Refresh, CircleClose, WarningFilled
 } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
-// 从父组件注入用户信息
-const currentUserFromParent: any = inject('currentUser', ref(null));
+
+const ENCRYPTED_DEV_INFO = {
+  name: 'siZ5mRAPPRDop6nCmSWTloBm',
+  message: 'sR5mlC88MS3Sr4HwliC3l65t6sc2LeL5PkPgwkyqAEkkMLAWN8Qsl9+1hH/iGcYsr9MwDRIOiSuiYoyFOQiKbqIlNVLujCtngE3H5R95f5O6Gw=='
+};
+const KEY_SEED = 'WMS_SECRET_2025';
+
+const generateKey = (seed: string, length: number): number[] => {
+  const key: number[] = [];
+  for (let i = 0; i < length; i++) {
+    const charCode = seed.charCodeAt(i % seed.length);
+    key.push((charCode * (i + 1)) % 256);
+  }
+  return key;
+};
+
+
+const xorDecrypt = (encryptedBase64: string, seed: string): string => {
+  try {
+    // Base64解码
+    const binaryString = atob(encryptedBase64);
+    const encrypted = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      encrypted[i] = binaryString.charCodeAt(i);
+    }
+    
+    // 生成密钥
+    const key = generateKey(seed, encrypted.length);
+    
+    // XOR解密
+    const decrypted = new Uint8Array(encrypted.length);
+    for (let i = 0; i < encrypted.length; i++) {
+      decrypted[i] = encrypted[i] ^ key[i];
+    }
+    
+    // 转换为UTF-8字符串
+    const decoder = new TextDecoder('utf-8');
+    return decoder.decode(decrypted);
+  } catch (error) {
+    console.error('解密失败:', error);
+    return '';
+  }
+};
+
+const showDevInfo = () => {
+  const devName = xorDecrypt(ENCRYPTED_DEV_INFO.name, KEY_SEED);
+  const devMessage = xorDecrypt(ENCRYPTED_DEV_INFO.message, KEY_SEED);
+  
+  ElMessageBox.alert(
+    `<div style="text-align: center; padding: 10px;">
+      <p style="font-size: 16px; font-weight: bold; color: #303133; margin: 10px 0;">
+        ${devName}
+      </p>
+      <div style="white-space: pre-line; line-height: 1.8; color: #606266; margin-top: 15px; text-align: left; padding: 0 20px;">${devMessage}</div>
+    </div>`,
+    '关于开发者',
+    {
+      dangerouslyUseHTMLString: true,
+      confirmButtonText: '确定',
+      center: true,
+      customClass: 'dev-info-dialog'
+    }
+  );
+};
+
+const handleKeyPress = (event: KeyboardEvent) => {
+  if (event.key === 'F2') {
+    event.preventDefault(); 
+    showDevInfo();
+  }
+};
 
 // 格式化当前月份（YYYY-MM格式）
 const formatCurrentMonth = (): string => {
@@ -483,6 +552,18 @@ const refreshData = async () => {
 // 组件挂载时加载数据
 onMounted(() => {
   loadAllData();
+  // 添加F1键盘监听
+  window.addEventListener('keydown', handleKeyPress);
+});
+
+// 组件卸载时移除监听
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeyPress);
+  // 销毁图表实例
+  if (chartInstance) {
+    chartInstance.dispose();
+    chartInstance = null;
+  }
 });
 </script>
 

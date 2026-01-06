@@ -34,7 +34,7 @@
           <el-dropdown v-if="currentUser" placement="bottom-end">
             <span class="el-dropdown-link">
               <el-avatar :size="32" :src="currentUser.avatar || defaultAvatar" style="margin-right: 8px;">
-                {{ currentUser.username.slice(0, 2) }}
+                {{ currentUser.username.slice(0, 1).toUpperCase() }}
               </el-avatar>
               <span>{{ currentUser.username }} ({{ currentUser.roleName }})</span>
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>

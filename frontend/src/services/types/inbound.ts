@@ -110,6 +110,10 @@ export interface ContractNumberUpdate {
   contract_reference: string;
 }
 
+export interface InboundCreateTimeUpdate {
+  create_time: string;
+}
+
 export interface InboundOrderItemUpdate {
   material_id?: number;
   batch_number?: string;
@@ -139,7 +143,7 @@ export type InboundOrderResponseType = InboundOrderResponse;
 export type InboundOrderStatisticsResponseType = InboundOrderStatistics;
 export type InboundOrderCreateResponseType = InboundOrderResponse;
 export type InboundOrderUpdateResponseType = { message: string; new_order_number?: string; new_transfer_number?: string; new_supplier_id?: number; new_supplier_name?: string; new_contract_number?: string };
-export type InboundOrderDateUpdateResponseType = { message: string; updated_fields: { inbound_date: string } };
+export type InboundOrderCreateTimeUpdateResponseType = { message: string; updated_fields: { create_time: string } };
 export type InboundOrderItemResponseType = { message: string; item_id: number };
 export type InboundOrderDeleteResponseType = { message: string };
 export type OrderNumberGenerateResponseType = OrderNumberGenerateResponse;

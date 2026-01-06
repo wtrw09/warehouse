@@ -15,6 +15,41 @@ from core.config import dynamic_settings
 # 创建用户认证的路由
 auth_router = APIRouter(prefix="", tags=["注册与用认证"])
 
+def get_real_client_ip(request: Request) -> str:
+    """
+    获取真实客户端IP地址（考虑反向代理场景）
+    
+    当使用Nginx等反向代理时，request.client.host返回的是代理服务器的IP，
+    而非真实客户端IP。此函数按优先级从HTTP请求头中提取真实IP。
+    
+    优先级顺序：
+    1. X-Real-IP - Nginx proxy_set_header设置的真实IP（最可靠）
+    2. X-Forwarded-For - 代理链中的第一个IP（备用方案）
+    3. request.client.host - 直连时的IP（fallback）
+    
+    Args:
+        request: FastAPI的Request对象
+    
+    Returns:
+        str: 客户端真实IP地址
+    """
+    # 1. 优先从 X-Real-IP 获取（Nginx设置）
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+    
+    # 2. 从 X-Forwarded-For 获取第一个IP（客户端IP）
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # X-Forwarded-For 格式: client_ip, proxy1_ip, proxy2_ip
+        # 取第一个IP作为客户端IP
+        first_ip = forwarded_for.split(",")[0].strip()
+        if first_ip:
+            return first_ip
+    
+    # 3. Fallback到直连IP（无代理场景）
+    return request.client.host if request.client else "unknown"
+
 @auth_router.post("/register", response_model=UserResponse)
 def register_user(
     db: Annotated[Session, Depends(get_db)],
@@ -22,6 +57,14 @@ def register_user(
     password: str = Form(...),
     invitation_code: str = Form(None)
 ):
+    # 调试信息
+    print(f"[DEBUG] 注册接口收到参数:")
+    print(f"  username: {username}")
+    print(f"  password: {'*' * len(password) if password else None}")
+    print(f"  invitation_code: {invitation_code}")
+    print(f"  系统配置的邀请码: {dynamic_settings.ADMIN_INVITATION_CODE}")
+    print(f"  邀请码是否匹配: {invitation_code == dynamic_settings.ADMIN_INVITATION_CODE if invitation_code else False}")
+    
     # 检查用户名是否已存在
     db_user = db.exec(select(User).where(User.username == username)).first()
     if db_user:
@@ -65,8 +108,8 @@ async def login_user(
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     
-    # 获取客户端IP地址和User-Agent
-    client_host = request.client.host if request.client else "unknown"
+    # 获取客户端IP地址和User-Agent（考虑反向代理场景）
+    client_host = get_real_client_ip(request)
     user_agent = request.headers.get("user-agent", "unknown")
     
     # 获取登录记录管理器
@@ -234,8 +277,8 @@ async def refresh_token(
             headers={"X-Error-Code": "USER_DISABLED"}
         )
     
-    # 获取客户端IP地址
-    client_host = request.client.host if request.client else "unknown"
+    # 获取客户端IP地址（考虑反向代理场景）
+    client_host = get_real_client_ip(request)
     
     # 获取用户权限列表
     user_permissions = [perm.id for perm in user.role.permissions]
@@ -289,8 +332,8 @@ async def logout_user(
         user = db.exec(select(User).where(User.username == username)).first()
         if user:
             print(f"[DEBUG] logout_user - 找到用户ID: {user.id}")
-            # 获取当前请求的IP地址
-            current_ip = request.client.host if request.client else "unknown"
+            # 获取当前请求的IP地址（考虑反向代理场景）
+            current_ip = get_real_client_ip(request)
             await login_record_manager.record_logout(db, user.id, current_ip, username)
         else:
             print(f"[DEBUG] logout_user - 未找到用户")

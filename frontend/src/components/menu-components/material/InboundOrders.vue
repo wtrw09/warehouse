@@ -135,18 +135,6 @@
             align="center" 
           />
           <el-table-column 
-            prop="inbound_date" 
-            label="入库日期" 
-            width="120" 
-            align="center" 
-            sortable="custom"
-            :sort-orders="['ascending', 'descending']"
-          >
-            <template #default="{ row }">
-              {{ formatDate(row.inbound_date) }}
-            </template>
-          </el-table-column>
-          <el-table-column 
             prop="create_time" 
             label="创建时间" 
             width="160" 
@@ -162,7 +150,7 @@
           <!-- 操作列 -->
           <el-table-column 
             label="操作" 
-            width="280" 
+            width="230" 
             align="center" 
             fixed="right"
           >
@@ -181,13 +169,21 @@
                 :icon="Edit"
               >
               </el-button>
-              <el-button 
-                type="success" 
-                size="small" 
-                @click="handlePrintInboundOrder(row)"
-                :icon="Printer"
-              >
-              </el-button>
+              <el-dropdown class="action-dropdown" split-button type="success" size="small" @click="() => handleExportInboundOrderExcel(row)">
+                <el-icon><Printer /></el-icon>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="() => handlePrintInboundOrderPdf(row)">
+                      <el-icon><Document /></el-icon>
+                      导出PDF
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => handleExportInboundOrderExcel(row)">
+                      <el-icon><DocumentCopy /></el-icon>
+                      导出Excel
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
               <el-button 
                 type="danger" 
                 size="small" 
@@ -238,7 +234,9 @@ import {
   Edit,
   Delete,
   View,
-  Printer
+  Printer,
+  Document,
+  DocumentCopy
 } from '@element-plus/icons-vue';
 import { inboundOrderAPI } from '@/services/material/inbound';
 import type { 
@@ -270,22 +268,6 @@ let searchTimer: NodeJS.Timeout | null = null;
 // 筛选选项
 const supplierOptions = ref<{ value: number; label: string }[]>([]);
 const supplierFilters = ref<{ text: string; value: string }[]>([]);
-
-// 格式化日期
-const formatDate = (dateString: string): string => {
-  if (!dateString) return '';
-  
-  try {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
-  } catch (error) {
-    return dateString;
-  }
-};
 
 // 格式化日期时间
 const formatDateTime = (dateString: string): string => {
@@ -456,7 +438,7 @@ const handleSelectionChange = (selection: InboundOrderResponse[]) => {
 };
 
 // 打印入库单
-const handlePrintInboundOrder = async (row: InboundOrderResponse) => {
+const handlePrintInboundOrderPdf = async (row: InboundOrderResponse) => {
   // 创建Notification实例
   let notification: any = null;
   
@@ -465,14 +447,14 @@ const handlePrintInboundOrder = async (row: InboundOrderResponse) => {
       notification.close();
     }
     notification = ElNotification({
-      title: '生成PDF',
+      title: '导出入库单',
       message: h('div', { style: 'width: 100%' }, [
         h('p', { style: 'margin-bottom: 10px' }, 
           percentage < 100 
-            ? `正在生成入库单 ${row.order_number} 的PDF文件...`
+            ? `正在导出入库单 ${row.order_number} 的文件...`
             : status === 'success' 
-              ? `入库单 ${row.order_number} 的PDF文件生成成功`
-              : `生成入库单 ${row.order_number} 的PDF文件失败`
+              ? `入库单 ${row.order_number} 的文件导出成功`
+              : `导出入库单 ${row.order_number} 的文件失败`
         ),
         h(ElProgress, {
           percentage: percentage,
@@ -504,7 +486,7 @@ const handlePrintInboundOrder = async (row: InboundOrderResponse) => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${row.order_number}.pdf`;
+    link.download = `入库单_${row.order_number}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -529,6 +511,84 @@ const handlePrintInboundOrder = async (row: InboundOrderResponse) => {
         notification.close();
       }
       ElMessage.error(`打印入库单失败: ${errorMessage}`);
+    }, 1000);
+  }
+};
+
+// 导出入库单Excel
+const handleExportInboundOrderExcel = async (row: InboundOrderResponse) => {
+  // 创建Notification实例
+  let notification: any = null;
+  
+  const createNotification = (percentage: number, status: 'success' | 'exception' | undefined = undefined) => {
+    if (notification) {
+      notification.close();
+    }
+    notification = ElNotification({
+      title: '导出入库单',
+      message: h('div', { style: 'width: 100%' }, [
+        h('p', { style: 'margin-bottom: 10px' }, 
+          percentage < 100 
+            ? `正在导出入库单 ${row.order_number} 的文件...`
+            : status === 'success' 
+              ? `入库单 ${row.order_number} 的文件导出成功`
+              : `导出入库单 ${row.order_number} 的文件失败`
+        ),
+        h(ElProgress, {
+          percentage: percentage,
+          status: status,
+          strokeWidth: 6,
+          showText: false
+        })
+      ]),
+      duration: 0, // 不会自动关闭
+      showClose: false, // 隐藏关闭按钮
+      position: 'top-right',
+      customClass: 'print-notification'
+    });
+  };
+
+  try {
+    // 初始通知
+    createNotification(0);
+    
+    // 更新进度到50%
+    createNotification(50);
+
+    const blob = await inboundOrderAPI.generateInboundOrderExcel(row.order_number);
+     
+    // 更新进度到100%并显示成功状态
+    createNotification(100, 'success');
+
+    // 创建下载链接
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `入库单_${row.order_number}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    // 延迟关闭通知并显示成功消息
+    setTimeout(() => {
+      if (notification) {
+        notification.close();
+      }
+      ElMessage.success('入库单Excel下载成功');
+    }, 500);
+  } catch (error: any) {
+    // 更新进度为错误状态
+    createNotification(100, 'exception');
+    
+    const errorMessage = error.response?.data?.message || error.message || '导出入库单Excel失败';
+    
+    // 延迟关闭通知并显示错误消息
+    setTimeout(() => {
+      if (notification) {
+        notification.close();
+      }
+      ElMessage.error(`导出入库单Excel失败: ${errorMessage}`);
     }, 1000);
   }
 };
@@ -597,7 +657,7 @@ const handlePrintMaterialLedger = async () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `账页${order.order_number}.pdf`;
+      link.download = `器材分类账页${order.order_number}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -705,4 +765,10 @@ onActivated(async () => {
 
 /* 使用现代Sass混入 */
 @include mixins.table-sort-arrows;
+
+/* 操作列下拉菜单样式 */
+.action-dropdown {
+  margin: 0 4px;
+  vertical-align: middle;
+}
 </style>

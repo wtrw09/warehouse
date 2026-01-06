@@ -27,20 +27,14 @@
         </div>
       </el-form>
       
-      <el-alert v-if="error" :closable="false" show-icon type="error" :title="error" style="margin-top: 10px;"/>
-      
-      <div style="text-align: center; margin-top: 15px;">
-        <el-button type="text" @click="navigateToRegister" size="small">
-          <User /> 注册为管理员
-        </el-button>
-      </div>
+      <!-- 隐藏注册入口，使用 Ctrl+Shift+A 快捷键打开注册页面 -->
     </el-card>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
 import { authAPI } from '../services/api';
@@ -53,7 +47,6 @@ const formData = ref({
   password: ''
 });
 const loading = ref(false);
-const error = ref('');
 const performanceMonitor = new PerformanceMonitor();
 
 // 保存表单数据到本地存储（仅在开发环境下）
@@ -93,9 +86,17 @@ const navigateToRegister = () => {
   router.push('/register');
 };
 
+// Ctrl+Shift+A 快捷键监听
+const handleKeyPress = (event) => {
+  // 检测 Ctrl+Shift+A 组合键
+  if (event.ctrlKey && event.shiftKey && event.key === 'A') {
+    event.preventDefault(); // 阻止默认行为
+    navigateToRegister();
+  }
+};
+
 const handleLogin = async () => {
   loading.value = true;
-  error.value = '';
   
   // 登录前保存表单数据
   saveFormData();
@@ -118,7 +119,6 @@ const handleLogin = async () => {
   } catch (err) {
     // 确保捕获错误时不清空表单数据
     const errorMessage = err.response?.data?.detail || '登录失败，请检查用户名和密码';
-    error.value = errorMessage;
     
     // 使用消息组件防护，避免null值
     ElMessage.error(errorMessage || '登录失败，请重试');
@@ -142,6 +142,9 @@ const handleLogin = async () => {
 // 组件挂载时恢复表单数据和性能监控
 onMounted(() => {
   restoreFormData();
+  
+  // 添加键盘事件监听
+  window.addEventListener('keydown', handleKeyPress);
   
   // 开始性能监控
   performanceMonitor.recordCoreWebVitals();
@@ -172,6 +175,11 @@ onMounted(() => {
       img.src = imageUrl;
     }
   }
+});
+
+// 组件卸载时移除键盘事件监听
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyPress);
 });
 </script>
 
@@ -212,14 +220,11 @@ html, body {
   z-index: 1;
   margin: 0;
   padding: 0 20px;
-  /* 将卡片定位到页面下1/3位置 */
-  margin-top: 66.67vh;
-  transform: translateY(-50%);
 }
 
 .login-slogan {
   position: absolute;
-  top: 13%;
+  top: 7%;
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;

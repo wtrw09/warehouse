@@ -283,6 +283,16 @@ class InboundOrderPDF(PDFGenerator):
             x_start = (210 - total_width) / 2  # A4纸宽度210mm
             self.set_x(x_start)
             
+            # 格式化单价和金额，最多显示3位小数，删除末尾多余的0
+            unit_price = item.get('unit_price', 0)
+            amount = item.get('amount', 0)
+            
+            # 单价格式化：最多3位小数，删除末尾多余的0
+            formatted_unit_price = f"{unit_price:.3f}".rstrip('0').rstrip('.') if '.' in f"{unit_price:.3f}" else f"{unit_price:.3f}"
+            
+            # 金额格式化：最多3位小数，删除末尾多余的0
+            formatted_amount = f"{amount:.3f}".rstrip('0').rstrip('.') if '.' in f"{amount:.3f}" else f"{amount:.3f}"
+            
             row = [
                 str(idx),
                 item.get('material_code', ''),
@@ -290,8 +300,8 @@ class InboundOrderPDF(PDFGenerator):
                 item.get('specification', ''),
                 item.get('unit', ''),
                 str(item.get('quantity', 0)),
-                f"{item.get('unit_price', 0):.2f}",
-                f"{item.get('amount', 0):.2f}",
+                formatted_unit_price,
+                formatted_amount,
                 item.get('remark', '')
             ]
             
@@ -413,13 +423,15 @@ class InboundOrderPDF(PDFGenerator):
         # 单元格1："合计"
         self.cell(col_widths[0], 12, '合计', 1, 0, 'C')
         
-        # 合并单元格2-7：人民币（大写）+ 金额中文大写
+        # 合并单元格2-7：人民币(大写)+ 金额中文大写
         merged_width_2_7 = sum(col_widths[1:7])
-        self.cell(merged_width_2_7, 12, f'人民币（大写）{amount_chinese}', 1, 0, 'L')
+        self.cell(merged_width_2_7, 12, f'人民币(大写){amount_chinese}', 1, 0, 'L')
         
-        # 合并单元格8-9：（小写）+ 金额数字
+        # 合并单元格8-9：(小写)+ 金额数字
         merged_width_8_9 = sum(col_widths[7:9])
-        self.cell(merged_width_8_9, 12, f'（小写）{self.total_amount:.2f}', 1, 0, 'L')
+        # 合计金额格式化：最多3位小数，删除末尾多余的0
+        formatted_total = f"{self.total_amount:.3f}".rstrip('0').rstrip('.') if '.' in f"{self.total_amount:.3f}" else f"{self.total_amount:.3f}"
+        self.cell(merged_width_8_9, 12, f'(小写){formatted_total}', 1, 0, 'L')
         
         self.ln()
         
@@ -477,12 +489,13 @@ class InboundOrderPDF(PDFGenerator):
             return "零元整"
         
         # 这里可以扩展更完整的金额转换逻辑
-        # 目前使用简化版本
+        # 目前使用简化版本，并添加金额过大的处理
         integer_part = int(amount)
         decimal_part = round((amount - integer_part) * 100)
         
         chinese_digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
-        chinese_units = ['', '拾', '佰', '仟', '万', '拾', '佰', '仟', '亿']
+        # 扩展单位列表，支持更大金额
+        chinese_units = ['', '拾', '佰', '仟', '万', '拾', '佰', '仟', '亿', '拾', '佰', '仟', '兆']
         
         result = ''
         
@@ -492,7 +505,12 @@ class InboundOrderPDF(PDFGenerator):
             for i, digit in enumerate(integer_str):
                 digit_int = int(digit)
                 unit_index = len(integer_str) - i - 1
-                result += chinese_digits[digit_int] + chinese_units[unit_index]
+                # 确保单位索引不越界
+                if unit_index < len(chinese_units):
+                    result += chinese_digits[digit_int] + chinese_units[unit_index]
+                else:
+                    # 金额过大时，直接使用数字表示
+                    result += str(digit_int)
             result += '元'
         
         # 小数部分转换
@@ -734,10 +752,14 @@ class MaterialLedgerPDF(PDFGenerator):
         unit_price = material.get('unit_price', 0)
         amount = quantity * unit_price
         
+        # 格式化单价和金额，最多显示3位小数，删除末尾多余的0
+        formatted_unit_price = f"{unit_price:.3f}".rstrip('0').rstrip('.') if '.' in f"{unit_price:.3f}" else f"{unit_price:.3f}"
+        formatted_amount = f"{amount:.3f}".rstrip('0').rstrip('.') if '.' in f"{amount:.3f}" else f"{amount:.3f}"
+        
         row4 = [
             '入库数量', str(quantity),
-            '单价', f"{unit_price:.2f}",
-            '金额', f"{amount:.2f}",
+            '单价', formatted_unit_price,
+            '金额', formatted_amount,
             '计量单位', material.get('unit', '')
         ]
         self._draw_table_row(row4, col_widths, is_header=False, field_name_indices=[0, 2, 4, 6])
@@ -970,6 +992,16 @@ class OutboundOrderPDF(PDFGenerator):
             x_start = (210 - total_width) / 2  # A4纸宽度210mm
             self.set_x(x_start)
             
+            # 格式化单价和金额，最多显示3位小数，删除末尾多余的0
+            unit_price = item.get('unit_price', 0)
+            amount = item.get('amount', 0)
+            
+            # 单价格式化：最多3位小数，删除末尾多余的0
+            formatted_unit_price = f"{unit_price:.3f}".rstrip('0').rstrip('.') if '.' in f"{unit_price:.3f}" else f"{unit_price:.3f}"
+            
+            # 金额格式化：最多3位小数，删除末尾多余的0
+            formatted_amount = f"{amount:.3f}".rstrip('0').rstrip('.') if '.' in f"{amount:.3f}" else f"{amount:.3f}"
+            
             row = [
                 str(idx),
                 item.get('material_code', ''),
@@ -977,8 +1009,8 @@ class OutboundOrderPDF(PDFGenerator):
                 item.get('specification', ''),
                 item.get('unit', ''),
                 str(item.get('quantity', 0)),
-                f"{item.get('unit_price', 0):.2f}",
-                f"{item.get('amount', 0):.2f}",
+                formatted_unit_price,
+                formatted_amount,
                 item.get('remark', '')
             ]
             
@@ -1101,13 +1133,15 @@ class OutboundOrderPDF(PDFGenerator):
         # 单元格1："合计"
         self.cell(col_widths[0], 12, '合计', 1, 0, 'C')
         
-        # 合并单元格2-7：人民币（大写）+ 金额中文大写
+        # 合并单元格2-7：人民币(大写)+ 金额中文大写
         merged_width_2_7 = sum(col_widths[1:7])
-        self.cell(merged_width_2_7, 12, f'人民币（大写）{amount_chinese}', 1, 0, 'L')
+        self.cell(merged_width_2_7, 12, f'人民币(大写){amount_chinese}', 1, 0, 'L')
         
-        # 合并单元格8-9：（小写）+ 金额数字
+        # 合并单元格8-9：(小写)+ 金额数字
         merged_width_8_9 = sum(col_widths[7:9])
-        self.cell(merged_width_8_9, 12, f'（小写）{self.total_amount:.2f}', 1, 0, 'L')
+        # 合计金额格式化：最多3位小数，删除末尾多余的0
+        formatted_total = f"{self.total_amount:.3f}".rstrip('0').rstrip('.') if '.' in f"{self.total_amount:.3f}" else f"{self.total_amount:.3f}"
+        self.cell(merged_width_8_9, 12, f'(小写){formatted_total}', 1, 0, 'L')
         
         self.ln()
         

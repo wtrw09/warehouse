@@ -29,7 +29,7 @@ class DynamicSettings:
             "SECRET_KEY": "K8#mPq$9@L",
             "ALGORITHM": "HS256",
             "ACCESS_TOKEN_EXPIRE_MINUTES": 1440,
-            "ADMIN_INVITATION_CODE": "admin-invite-code",
+            "ADMIN_INVITATION_CODE": "ADMIN-7X9F-K2B8-R4P6-QTZ3",
             "AUTH_STRATEGY": "sliding_session",
             "SLIDING_SESSION_TIMEOUT_MINUTES": 1440,
             "ACCESS_TOKEN_SHORT_EXPIRE_MINUTES": 60,
@@ -52,7 +52,7 @@ class DynamicSettings:
                 # 使用原生SQL查询避免导入SystemConfig模型
                 from sqlalchemy import text
                 query = text("SELECT config_key, config_value, config_type FROM _system_config WHERE is_active = 1")
-                result = db.execute(query)
+                result = db.exec(query)
                 configs = result.fetchall()
                 
                 for config in configs:

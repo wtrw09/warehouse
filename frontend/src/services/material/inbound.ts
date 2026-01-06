@@ -9,17 +9,17 @@ import type {
   InboundOrderStatisticsResponseType,
   InboundOrderCreateResponseType,
   InboundOrderUpdateResponseType,
-  InboundOrderDateUpdateResponseType,
+  InboundOrderCreateTimeUpdateResponseType,
   InboundOrderItemResponseType,
   OrderNumberUpdate,
   TransferNumberUpdate,
   SupplierUpdate,
   ContractNumberUpdate,
+  InboundCreateTimeUpdate,
   InboundOrderItemCreate,
   InboundOrderItemUpdate,
   OrderNumberGenerateResponseType,
   SupplierListResponseType,
-  InboundOrderUpdate
 } from '../types/inbound';
 
 /**
@@ -109,10 +109,10 @@ export const inboundOrderAPI = {
   },
 
   /**
-   * 修改入库单信息（包括入库日期等）
+   * 修改入库单创建时间
    */
-  updateInboundOrder: async (orderId: number, data: InboundOrderUpdate): Promise<InboundOrderDateUpdateResponseType> => {
-    const response = await api.put<InboundOrderDateUpdateResponseType>(`/inbound-orders/${orderId}/update-inbound-date`, data);
+  updateCreateTime: async (orderId: number, data: InboundCreateTimeUpdate): Promise<InboundOrderCreateTimeUpdateResponseType> => {
+    const response = await api.put<InboundOrderCreateTimeUpdateResponseType>(`/inbound-orders/${orderId}/update-create-time`, data);
     return response.data;
   },
 
@@ -179,6 +179,16 @@ export const inboundOrderAPI = {
     */
    printMaterialLedger: async (orderNumber: string): Promise<Blob> => {
      const response = await api.get(`/material-ledger/pdf/${orderNumber}`, {
+       responseType: 'blob'
+     });
+     return response.data;
+   },
+
+   /**
+    * 生成入库单Excel文件
+    */
+   generateInboundOrderExcel: async (orderNumber: string): Promise<Blob> => {
+     const response = await api.get(`/inbound-orders/excel/${orderNumber}`, {
        responseType: 'blob'
      });
      return response.data;

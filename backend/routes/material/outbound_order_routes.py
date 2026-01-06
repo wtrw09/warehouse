@@ -432,7 +432,353 @@ async def delete_outbound_order(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"删除出库单失败: {str(e)}")
 
+@outbound_orders_router.put("/update-create-time/{order_id}")
+async def update_outbound_create_time(
+    order_id: int,
+    update_data: CreateTimeUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/update-create-time"))
+):
+    """修改出库单创建时间"""
+    
+    # 查询出库单
+    order = db.get(OutboundOrder, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="出库单不存在")
+    
+    # 更新创建时间
+    order.create_time = update_data.create_time
+    db.add(order)
+    db.commit()
+    
+    return {"message": "出库单创建时间修改成功", "updated_fields": {
+        "create_time": update_data.create_time
+    }}
 
+
+@outbound_orders_router.get("/statistics", response_model=OutboundOrderStatistics)
+async def get_outbound_order_statistics(
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/statistics"))
+):
+    """获取出库单统计信息"""
+    
+    # 构建查询条件
+    query = select(OutboundOrder)
+    
+    # 日期筛选
+    if start_date:
+        query = query.where(OutboundOrder.create_time >= start_date)
+    if end_date:
+        query = query.where(OutboundOrder.create_time <= end_date)
+    
+    # 执行查询
+    orders = db.exec(query).all()
+    
+    # 统计信息
+    total_orders = len(orders)
+    total_quantity = sum(order.total_quantity for order in orders)
+    total_amount = sum(
+        sum(item.quantity * item.unit_price for item in order.items) 
+        for order in orders
+    )
+    
+    # 按客户统计
+    customer_stats = {}
+    for order in orders:
+        if order.customer_name not in customer_stats:
+            customer_stats[order.customer_name] = {
+                "customer_name": order.customer_name,
+                "order_count": 0,
+                "total_quantity": 0,
+                "total_amount": 0
+            }
+        customer_stats[order.customer_name]["order_count"] += 1
+        customer_stats[order.customer_name]["total_quantity"] += order.total_quantity
+        customer_stats[order.customer_name]["total_amount"] += sum(
+            item.quantity * item.unit_price for item in order.items
+        )
+    
+    # 按日期统计
+    date_stats = {}
+    for order in orders:
+        date_str = order.create_time.date().isoformat()
+        if date_str not in date_stats:
+            date_stats[date_str] = {
+                "date": date_str,
+                "order_count": 0,
+                "total_quantity": 0,
+                "total_amount": 0
+            }
+        date_stats[date_str]["order_count"] += 1
+        date_stats[date_str]["total_quantity"] += order.total_quantity
+        date_stats[date_str]["total_amount"] += sum(
+            item.quantity * item.unit_price for item in order.items
+        )
+    
+    return OutboundOrderStatistics(
+        total_orders=total_orders,
+        total_quantity=total_quantity,
+        total_amount=total_amount,
+        customer_stats=list(customer_stats.values()),
+        date_stats=list(date_stats.values())
+    )
+
+
+@outbound_orders_router.get("/generate-order-number/{date_str}")
+async def generate_outbound_order_number(
+    date_str: str,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/generate-order-number"))
+):
+    """根据日期生成出库单号"""
+    
+    # 验证日期格式
+    if len(date_str) != 8 or not date_str.isdigit():
+        raise HTTPException(status_code=400, detail="日期格式错误，应为YYYYMMDD格式")
+    
+    try:
+        # 验证日期是否有效
+        year = int(date_str[:4])
+        month = int(date_str[4:6])
+        day = int(date_str[6:8])
+        datetime(year, month, day)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="无效的日期")
+    
+    # 构建前缀：CK + 日期
+    prefix = f"CK{date_str}"
+    
+    # 查询系统中包含该前缀的所有出库单号
+    existing_orders = db.exec(
+        select(OutboundOrder.order_number)
+        .where(OutboundOrder.order_number.like(f"{prefix}%"))
+    ).all()
+    
+    # 提取现有的流水号
+    existing_sequence_numbers = []
+    for order_number in existing_orders:
+        if len(order_number) > len(prefix) + 1 and order_number[len(prefix)] == "-":
+            try:
+                sequence = int(order_number[len(prefix) + 1:])
+                existing_sequence_numbers.append(sequence)
+            except ValueError:
+                continue
+    
+    # 计算最小未使用的流水号
+    if existing_sequence_numbers:
+        max_sequence = max(existing_sequence_numbers)
+        next_sequence = max_sequence + 1
+    else:
+        next_sequence = 1
+    
+    # 格式化流水号为3位数字
+    sequence_str = f"{next_sequence:03d}"
+    
+    # 生成完整的出库单号
+    order_number = f"{prefix}-{sequence_str}"
+    
+    return {
+        "order_number": order_number,
+        "date": date_str,
+        "sequence": next_sequence
+    }
+
+
+@outbound_orders_router.get("/customers")
+async def get_outbound_order_customers(
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/customers"))
+):
+    """获取所有出库单中出现的客户ID和名称合集（去除重复项）"""
+    
+    try:
+        # 查询所有出库单中的客户ID和名称，使用distinct去重
+        customers = db.exec(
+            select(OutboundOrder.customer_id, OutboundOrder.customer_name)
+            .distinct()
+            .where(OutboundOrder.customer_id.isnot(None))
+            .order_by(OutboundOrder.customer_name)
+        ).all()
+        
+        # 构建响应数据
+        customer_list = []
+        for customer_id, customer_name in customers:
+            customer_list.append({
+                "customer_id": customer_id,
+                "customer_name": customer_name
+            })
+        
+        return {
+            "total": len(customer_list),
+            "customers": customer_list
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取客户列表失败: {str(e)}")
+
+
+@outbound_orders_router.get("/pdf/{order_number}")
+async def generate_outbound_order_pdf_route(
+    order_number: str,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/pdf"))
+):
+    """生成出库单PDF文件"""
+    
+    try:
+        # 查询出库单基本信息
+        order = db.exec(select(OutboundOrder).where(OutboundOrder.order_number == order_number)).first()
+        if not order:
+            raise HTTPException(status_code=404, detail="出库单不存在")
+        
+        # 查询出库单明细
+        items_query = select(OutboundOrderItem).where(OutboundOrderItem.order_id == order.order_id)
+        items = db.exec(items_query).all()
+        
+        # 构建订单数据
+        order_data = {
+            'order_number': order.order_number,
+            'customer_name': order.customer_name,
+            'outbound_date': order.create_time.strftime('%Y-%m-%d'),
+            'creator': order.creator,
+            'remark': ''  # 可以根据需要添加备注字段
+        }
+        # 构建明细数据
+        items_data = []
+        total_amount = 0
+        
+        for index, item in enumerate(items, 1):
+            amount = item.quantity * item.unit_price
+            total_amount += amount
+            
+            items_data.append({
+                'index': index,
+                'material_code': item.material_code,
+                'material_name': item.material_name,
+                'specification': item.material_specification or '',
+                'unit': item.unit,
+                'quantity': item.quantity,
+                'unit_price': item.unit_price,
+                'amount': amount,
+                'remark': ''  # 可以根据需要添加备注
+            })
+        
+        # 生成PDF文件
+        pdf_filename = f"outbound_order_{order_number}.pdf"
+        success = generate_outbound_order_pdf(order_data, items_data, pdf_filename)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="PDF生成失败")
+        
+        # 读取PDF文件内容
+        with open(pdf_filename, 'rb') as pdf_file:
+            pdf_content = pdf_file.read()
+        
+        # 删除临时文件
+        os.remove(pdf_filename)
+        
+        # 返回PDF文件
+        return Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={pdf_filename}",
+                "Content-Type": "application/pdf"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成PDF失败: {str(e)}")
+
+
+@outbound_orders_router.get("/excel/{order_number}")
+async def generate_outbound_order_excel_route(
+    order_number: str,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/excel"))
+):
+    """生成出库单Excel文件"""
+    
+    try:
+        from utils.excel_generator import generate_outbound_order_excel
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"开始生成出库单Excel: {order_number}")
+        
+        # 查询出库单基本信息
+        order = db.exec(select(OutboundOrder).where(OutboundOrder.order_number == order_number)).first()
+        if not order:
+            raise HTTPException(status_code=404, detail="出库单不存在")
+        
+        # 查询出库单明细
+        items_query = select(OutboundOrderItem).where(OutboundOrderItem.order_id == order.order_id)
+        items = db.exec(items_query).all()
+        
+        # 构建订单数据
+        order_data = {
+            'order_number': order.order_number,
+            'customer_name': order.customer_name,
+            'outbound_date': order.create_time.strftime('%Y-%m-%d'),
+            'creator': order.creator
+        }
+        
+        # 构建明细数据
+        items_data = []
+        for item in items:
+            items_data.append({
+                'material_code': item.material_code,
+                'material_name': item.material_name,
+                'material_specification': item.material_specification or '',
+                'unit': item.unit,
+                'quantity': item.quantity,
+                'unit_price': item.unit_price
+            })
+        
+        # 生成Excel文件
+        excel_filename = f"outbound_order_{order_number}.xlsx"
+        logger.info(f"准备生成Excel文件: {excel_filename}")
+        success = generate_outbound_order_excel(order_data, items_data, excel_filename)
+        
+        if not success:
+            logger.error(f"Excel生成失败: {excel_filename}")
+            raise HTTPException(status_code=500, detail="Excel生成失败")
+        
+        logger.info(f"Excel文件生成成功: {excel_filename}")
+        
+        # 读取Excel文件内容
+        with open(excel_filename, 'rb') as excel_file:
+            excel_content = excel_file.read()
+        
+        # 删除临时文件
+        os.remove(excel_filename)
+        logger.info(f"临时文件已删除: {excel_filename}")
+        
+        # 返回Excel文件
+        return Response(
+            content=excel_content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={excel_filename}",
+                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except FileNotFoundError as e:
+        logger.error(f"Excel模板文件不存在: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Excel模板文件不存在: {str(e)}")
+    except Exception as e:
+        logger.error(f"生成Excel失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成Excel失败: {str(e)}")
+
+        
 @outbound_orders_router.put("/{order_id}/update-order-number", response_model=OutboundOrderResponse)
 async def update_outbound_order_number(
     order_id: int,
@@ -968,265 +1314,3 @@ async def batch_delete_outbound_order_items(
         raise HTTPException(status_code=500, detail=f"批量删除出库明细失败: {str(e)}")
 
 
-@outbound_orders_router.put("/update-create-time/{order_id}")
-async def update_outbound_create_time(
-    order_id: int,
-    update_data: CreateTimeUpdate,
-    db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/update-create-time"))
-):
-    """修改出库单创建时间"""
-    
-    # 查询出库单
-    order = db.get(OutboundOrder, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="出库单不存在")
-    
-    # 更新创建时间
-    order.create_time = update_data.create_time
-    db.add(order)
-    db.commit()
-    
-    return {"message": "出库单创建时间修改成功", "updated_fields": {
-        "create_time": update_data.create_time
-    }}
-
-
-@outbound_orders_router.get("/statistics", response_model=OutboundOrderStatistics)
-async def get_outbound_order_statistics(
-    start_date: Optional[date] = Query(None, description="开始日期"),
-    end_date: Optional[date] = Query(None, description="结束日期"),
-    db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/statistics"))
-):
-    """获取出库单统计信息"""
-    
-    # 构建查询条件
-    query = select(OutboundOrder)
-    
-    # 日期筛选
-    if start_date:
-        query = query.where(OutboundOrder.create_time >= start_date)
-    if end_date:
-        query = query.where(OutboundOrder.create_time <= end_date)
-    
-    # 执行查询
-    orders = db.exec(query).all()
-    
-    # 统计信息
-    total_orders = len(orders)
-    total_quantity = sum(order.total_quantity for order in orders)
-    total_amount = sum(
-        sum(item.quantity * item.unit_price for item in order.items) 
-        for order in orders
-    )
-    
-    # 按客户统计
-    customer_stats = {}
-    for order in orders:
-        if order.customer_name not in customer_stats:
-            customer_stats[order.customer_name] = {
-                "customer_name": order.customer_name,
-                "order_count": 0,
-                "total_quantity": 0,
-                "total_amount": 0
-            }
-        customer_stats[order.customer_name]["order_count"] += 1
-        customer_stats[order.customer_name]["total_quantity"] += order.total_quantity
-        customer_stats[order.customer_name]["total_amount"] += sum(
-            item.quantity * item.unit_price for item in order.items
-        )
-    
-    # 按日期统计
-    date_stats = {}
-    for order in orders:
-        date_str = order.create_time.date().isoformat()
-        if date_str not in date_stats:
-            date_stats[date_str] = {
-                "date": date_str,
-                "order_count": 0,
-                "total_quantity": 0,
-                "total_amount": 0
-            }
-        date_stats[date_str]["order_count"] += 1
-        date_stats[date_str]["total_quantity"] += order.total_quantity
-        date_stats[date_str]["total_amount"] += sum(
-            item.quantity * item.unit_price for item in order.items
-        )
-    
-    return OutboundOrderStatistics(
-        total_orders=total_orders,
-        total_quantity=total_quantity,
-        total_amount=total_amount,
-        customer_stats=list(customer_stats.values()),
-        date_stats=list(date_stats.values())
-    )
-
-
-@outbound_orders_router.get("/generate-order-number/{date_str}")
-async def generate_outbound_order_number(
-    date_str: str,
-    db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/generate-order-number"))
-):
-    """根据日期生成出库单号"""
-    
-    # 验证日期格式
-    if len(date_str) != 8 or not date_str.isdigit():
-        raise HTTPException(status_code=400, detail="日期格式错误，应为YYYYMMDD格式")
-    
-    try:
-        # 验证日期是否有效
-        year = int(date_str[:4])
-        month = int(date_str[4:6])
-        day = int(date_str[6:8])
-        datetime(year, month, day)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="无效的日期")
-    
-    # 构建前缀：CK + 日期
-    prefix = f"CK{date_str}"
-    
-    # 查询系统中包含该前缀的所有出库单号
-    existing_orders = db.exec(
-        select(OutboundOrder.order_number)
-        .where(OutboundOrder.order_number.like(f"{prefix}%"))
-    ).all()
-    
-    # 提取现有的流水号
-    existing_sequence_numbers = []
-    for order_number in existing_orders:
-        if len(order_number) > len(prefix) + 1 and order_number[len(prefix)] == "-":
-            try:
-                sequence = int(order_number[len(prefix) + 1:])
-                existing_sequence_numbers.append(sequence)
-            except ValueError:
-                continue
-    
-    # 计算最小未使用的流水号
-    if existing_sequence_numbers:
-        max_sequence = max(existing_sequence_numbers)
-        next_sequence = max_sequence + 1
-    else:
-        next_sequence = 1
-    
-    # 格式化流水号为3位数字
-    sequence_str = f"{next_sequence:03d}"
-    
-    # 生成完整的出库单号
-    order_number = f"{prefix}-{sequence_str}"
-    
-    return {
-        "order_number": order_number,
-        "date": date_str,
-        "sequence": next_sequence
-    }
-
-
-@outbound_orders_router.get("/customers")
-async def get_outbound_order_customers(
-    db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/customers"))
-):
-    """获取所有出库单中出现的客户ID和名称合集（去除重复项）"""
-    
-    try:
-        # 查询所有出库单中的客户ID和名称，使用distinct去重
-        customers = db.exec(
-            select(OutboundOrder.customer_id, OutboundOrder.customer_name)
-            .distinct()
-            .where(OutboundOrder.customer_id.isnot(None))
-            .order_by(OutboundOrder.customer_name)
-        ).all()
-        
-        # 构建响应数据
-        customer_list = []
-        for customer_id, customer_name in customers:
-            customer_list.append({
-                "customer_id": customer_id,
-                "customer_name": customer_name
-            })
-        
-        return {
-            "total": len(customer_list),
-            "customers": customer_list
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取客户列表失败: {str(e)}")
-
-
-@outbound_orders_router.get("/pdf/{order_number}")
-async def generate_outbound_order_pdf_route(
-    order_number: str,
-    db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/pdf"))
-):
-    """生成出库单PDF文件"""
-    
-    try:
-        # 查询出库单基本信息
-        order = db.exec(select(OutboundOrder).where(OutboundOrder.order_number == order_number)).first()
-        if not order:
-            raise HTTPException(status_code=404, detail="出库单不存在")
-        
-        # 查询出库单明细
-        items_query = select(OutboundOrderItem).where(OutboundOrderItem.order_id == order.order_id)
-        items = db.exec(items_query).all()
-        
-        # 构建订单数据
-        order_data = {
-            'order_number': order.order_number,
-            'customer_name': order.customer_name,
-            'outbound_date': order.create_time.strftime('%Y-%m-%d'),
-            'creator': order.creator,
-            'remark': ''  # 可以根据需要添加备注字段
-        }
-        # 构建明细数据
-        items_data = []
-        total_amount = 0
-        
-        for index, item in enumerate(items, 1):
-            amount = item.quantity * item.unit_price
-            total_amount += amount
-            
-            items_data.append({
-                'index': index,
-                'material_code': item.material_code,
-                'material_name': item.material_name,
-                'specification': item.material_specification or '',
-                'unit': item.unit,
-                'quantity': item.quantity,
-                'unit_price': item.unit_price,
-                'amount': amount,
-                'remark': ''  # 可以根据需要添加备注
-            })
-        
-        # 生成PDF文件
-        pdf_filename = f"outbound_order_{order_number}.pdf"
-        success = generate_outbound_order_pdf(order_data, items_data, pdf_filename)
-        
-        if not success:
-            raise HTTPException(status_code=500, detail="PDF生成失败")
-        
-        # 读取PDF文件内容
-        with open(pdf_filename, 'rb') as pdf_file:
-            pdf_content = pdf_file.read()
-        
-        # 删除临时文件
-        os.remove(pdf_filename)
-        
-        # 返回PDF文件
-        return Response(
-            content=pdf_content,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"attachment; filename={pdf_filename}",
-                "Content-Type": "application/pdf"
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成PDF失败: {str(e)}")

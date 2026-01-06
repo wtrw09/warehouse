@@ -201,11 +201,12 @@
             <el-input-number
               v-model="row.unit_price"
               :min="0"
-              :precision="2"
+              :precision="3"
+              :step="0.001"
               size="small"
               controls-position="right"
               @change="handleUnitPriceChange($index)"
-              :class="{ 'error-border': row.unit_price < 0 || (row.unit_price !== null && row.unit_price.toString().split('.')[1]?.length > 2) }"
+              :class="{ 'error-border': row.unit_price < 0 || (row.unit_price !== null && row.unit_price.toString().split('.')[1]?.length > 3) }"
               style="width: 100%"
               :disabled="props.readonly"
             />
@@ -224,7 +225,7 @@
           align="center" 
         >
           <template #default="{ row }">
-            {{ row.unit_price && row.quantity ? `¥${(row.unit_price * row.quantity).toFixed(2)}` : '-' }}
+            {{ row.unit_price && row.quantity ? `¥${Number((row.unit_price * row.quantity).toFixed(2))}` : '-' }}
           </template>
         </el-table-column>
         <el-table-column 
@@ -380,9 +381,10 @@
                     <el-input-number 
                       v-model="selectedMaterialInfo.unit_price" 
                       :min="0" 
-                      :precision="2" 
+                      :precision="3" 
+                      :step="0.001"
                       placeholder="请输入单价" 
-                      :class="{ 'error-border': selectedMaterialInfo.unit_price === null || selectedMaterialInfo.unit_price < 0 || (selectedMaterialInfo.unit_price !== null && selectedMaterialInfo.unit_price.toString().split('.')[1]?.length > 2) }"
+                      :class="{ 'error-border': selectedMaterialInfo.unit_price === null || selectedMaterialInfo.unit_price < 0 || (selectedMaterialInfo.unit_price !== null && selectedMaterialInfo.unit_price.toString().split('.')[1]?.length > 3) }"
                       style="width: 100%"
                     />
                   </el-form-item>
@@ -439,7 +441,7 @@
                 </el-col>
               </el-row>
               <el-row :gutter="10">
-                <el-col :span="12">
+                <el-col :span="13">
                   <el-form-item label="批次号" required>
                     <el-input 
                       v-model="selectedMaterialInfo.batch_number" 
@@ -447,7 +449,7 @@
                     />
                   </el-form-item>
                 </el-col>
-                <el-col :span="12">
+                <el-col :span="11">
                   <el-form-item label="生产日期" required>
                     <el-date-picker
                       v-model="selectedMaterialInfo.production_date"
@@ -608,8 +610,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { useRoute } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
   List, 
   Delete,
@@ -623,6 +624,7 @@ import { warehouseAPI } from '@/services/base/warehouse';
 import { binApi } from '@/services/base/bin';
 import { inventoryDetailAPI } from '@/services/material/inventory_detail';
 import { COMMON_UNITS } from '@/constants/units';
+import { saveDraft, loadDraft, clearDraft, hasDraft, getDraftTimestamp, formatDraftTime } from '@/utils/draftManager';
 import type { 
   InboundOrderCreate,
   InboundOrderItemCreate
@@ -635,7 +637,21 @@ import type {
 } from '@/services/types/material';
 import type { BinQueryParams, Bin } from '@/services/types/bin';
 
-const route = useRoute();
+// 草稿管理相关常量
+const DRAFT_KEY = 'inbound_order_draft';
+
+// 草稿数据接口
+interface InboundOrderDraftData {
+  orderForm: {
+    order_number: string;
+    requisition_reference: string;
+    contract_reference: string;
+    supplier_id: number | null;
+    supplier_name: string;
+    inbound_date: string;
+  };
+  orderItems: ExtendedInboundOrderItem[];
+}
 
 // 定义props
 const props = defineProps<{
@@ -748,15 +764,36 @@ const selectedMaterialInfo = reactive({
   unit: '',
   unit_price: null as number | null,
   batch_number: '',
-  bin_id: null as number | null, // 修改：支持null值，表示未选择货位
+  bin_id: null as number | null, // 支持null值，表示未选择货位
   bin_name: '',
   production_date: ''
 });
 
 // 单位选择相关变量
-const unitOptions = ref([...COMMON_UNITS]);
+const allUnitOptions = ref<string[]>([...COMMON_UNITS]); // 完整的单位列表（保持最近使用的顺序）
 const showUnitDropdown = ref(false);
 const unitSearchText = ref('');
+
+// 计算属性：根据搜索文本过滤单位选项
+const unitOptions = computed(() => {
+  if (unitSearchText.value) {
+    // 根据搜索文本过滤
+    const filtered = allUnitOptions.value.filter(unit => 
+      unit.includes(unitSearchText.value)
+    );
+    
+    // 如果过滤后为空，从COMMON_UNITS中查找
+    if (filtered.length === 0) {
+      return COMMON_UNITS.filter(unit => 
+        unit.includes(unitSearchText.value)
+      );
+    }
+    
+    return filtered;
+  }
+  // 没有搜索文本时，显示完整列表
+  return allUnitOptions.value;
+});
 
 // 编辑状态管理
 const editingIndex = ref<number | null>(null);
@@ -767,6 +804,38 @@ const validationErrors = reactive({
   material_id: false,
   bin_id: false
 });
+
+// 草稿自动保存方法
+const saveDraftData = () => {
+  // 仅在新增模式下保存草稿
+  if (!isEdit.value) {
+    // 判断是否有有效的用户输入（不仅仅是自动生成的单号和日期）
+    const hasValidInput = 
+      orderForm.supplier_id !== null ||  // 有供应商选择
+      orderForm.requisition_reference !== '' ||  // 有调拨单号
+      orderForm.contract_reference !== '' ||  // 有合同号
+      orderItems.value.length > 0;  // 有明细数据
+    
+    // 只有存在有效用户输入时才保存草稿
+    if (hasValidInput) {
+      const draftData: InboundOrderDraftData = {
+        orderForm: {
+          order_number: orderForm.order_number,
+          requisition_reference: orderForm.requisition_reference,
+          contract_reference: orderForm.contract_reference,
+          supplier_id: orderForm.supplier_id,
+          supplier_name: orderForm.supplier_name,
+          inbound_date: orderForm.inbound_date
+        },
+        orderItems: orderItems.value
+      };
+      saveDraft(DRAFT_KEY, draftData);
+    } else {
+      // 没有有效输入，清除可能存在的草稿
+      clearDraft(DRAFT_KEY);
+    }
+  }
+};
 
 // 计算总数量
 const totalQuantity = computed(() => {
@@ -886,12 +955,16 @@ const openMaterialDrawer = async () => {
   // 清空左侧表单数据
   resetSelectedMaterialInfo();
   
-  // 自动设置生产日期为当天
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  selectedMaterialInfo.production_date = `${year}-${month}-${day}`;
+  // 自动设置生产日期为入库日期（如果有入库日期），否则使用当天
+  if (orderForm.inbound_date) {
+    selectedMaterialInfo.production_date = orderForm.inbound_date;
+  } else {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    selectedMaterialInfo.production_date = `${year}-${month}-${day}`;
+  }
   
   await getMaterialList();
   await getMajors();
@@ -919,40 +992,53 @@ const handleUnitSelect = (unit: string) => {
   selectedMaterialInfo.unit = unit;
   showUnitDropdown.value = false;
   unitSearchText.value = '';
+  // 更新unitOptions，将使用的单位插入到最前面
+  updateUnitOptions(unit);
 };
 
 const handleUnitInputFocus = () => {
   showUnitDropdown.value = true;
-  // 显示所有常用单位，包括'个'
-  unitOptions.value = [...COMMON_UNITS];
+  unitSearchText.value = ''; // 清空搜索文本，显示完整列表
 };
 
 const handleUnitInputBlur = () => {
   // 延迟关闭下拉框，以便点击选项时能正常触发
   setTimeout(() => {
     showUnitDropdown.value = false;
+    // 如果用户直接输入了单位（没有选择下拉项），也更新unitOptions
+    if (selectedMaterialInfo.unit && selectedMaterialInfo.unit.trim()) {
+      updateUnitOptions(selectedMaterialInfo.unit.trim());
+    }
   }, 300);
 };
 
 const handleUnitSearch = (value: string) => {
   unitSearchText.value = value;
-  if (value) {
-    // 根据输入内容过滤常用单位
-    unitOptions.value = COMMON_UNITS.filter(unit => 
-      unit.includes(value)
-    );
-  } else {
-    // 如果没有输入内容，显示所有常用单位
-    unitOptions.value = [...COMMON_UNITS];
-  }
+  // 过滤逻辑由计算属性unitOptions自动处理
 };
 
 const addCustomUnit = () => {
   if (unitSearchText.value && !COMMON_UNITS.includes(unitSearchText.value as any)) {
     selectedMaterialInfo.unit = unitSearchText.value;
+    // 更新unitOptions，将自定义单位插入到最前面
+    updateUnitOptions(unitSearchText.value);
     unitSearchText.value = '';
     showUnitDropdown.value = false;
   }
+};
+
+// 更新单位选项，将使用的单位移到最前面
+const updateUnitOptions = (unit: string) => {
+  if (!unit) return;
+  
+  // 从当前的allUnitOptions中移除该单位（如果存在）
+  const index = allUnitOptions.value.indexOf(unit);
+  if (index > -1) {
+    allUnitOptions.value.splice(index, 1);
+  }
+  
+  // 将该单位插入到最前面
+  allUnitOptions.value.unshift(unit);
 };
 
 // 获取专业列表
@@ -1103,8 +1189,14 @@ const getBins = async () => {
 // 生成批次编码
 const generateBatchCode = async (material: MaterialResponse) => {
     try {
-      const now = new Date();
-      const batchDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      // 使用入库日期作为批次日期（如果有入库日期），否则使用当天日期
+      let batchDate: string;
+      if (orderForm.inbound_date) {
+        batchDate = orderForm.inbound_date;
+      } else {
+        const now = new Date();
+        batchDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      }
       
       // 检查器材明细中是否已经有相同器材ID的记录
       const existingItems = orderItems.value.filter(item => item.material_id === material.id);
@@ -1139,10 +1231,8 @@ const generateBatchCode = async (material: MaterialResponse) => {
         const maxSequence = existingSequences.length > 0 ? Math.max(...existingSequences) : 0;
         const nextSequence = maxSequence + 1;
         
-        // 使用前端生成不同的批次编码（保持与后端API一致的格式）
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
+        // 使用入库日期生成批次编码（保持与后端API一致的格式）
+        const [year, month, day] = batchDate.split('-');
         const sequenceStr = String(nextSequence).padStart(3, '0');
         
         // 生成正确的批次编码格式：器材编码-年月日+流水号
@@ -1177,12 +1267,17 @@ const generateBatchCode = async (material: MaterialResponse) => {
       }
     } catch (error) {
       console.error('生成批次编码失败:', error);
-      // 如果API调用失败，使用前端备用方案
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const dateStr = `${year}${month}${day}`;
+      // 如果API调用失败，使用前端备用方案，优先使用入库日期
+      let dateStr: string;
+      if (orderForm.inbound_date) {
+        dateStr = orderForm.inbound_date.replace(/-/g, '');
+      } else {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        dateStr = `${year}${month}${day}`;
+      }
       const sequence = '002';
       ElMessage.warning('批次编码生成失败，使用备用方案');
       return `${material.material_code}-${dateStr}${sequence}`;
@@ -1526,6 +1621,9 @@ const debounce = <T extends (...args: any[]) => any>(func: T, delay: number): T 
   }) as T;
 };
 
+// 防抖保存草稿（500ms）
+const saveDraftDebounced = debounce(saveDraftData, 500);
+
 // 处理数量变化（带防抖的实时更新）
 const handleQuantityChange = debounce(async (index: number) => {
   // console.log(`数量变化: 第${index}行, 新数量: ${orderItems.value[index].quantity}`);
@@ -1631,7 +1729,8 @@ const handleUnitPriceChange = debounce(async (index: number) => {
 // 计算总金额
 const totalAmount = computed(() => {
   return orderItems.value.reduce((sum, item) => {
-    return sum + (item.quantity * (item.unit_price || 0));
+    const amount = (item.quantity || 0) * (item.unit_price || 0);
+    return Number((sum + amount).toFixed(3));
   }, 0);
 });
 
@@ -1643,12 +1742,18 @@ const emit = defineEmits<{
 
 // 返回入库单列表
 const handleBack = () => {
-  // 触发返回事件
+  // 新增模式：草稿已自动保存，直接返回即可
+  // 下次进入新建页面时会提示恢复草稿
   emit('back');
 };
 
 // 入库单号变更处理（实时保存）
 const handleOrderNumberChange = async () => {
+  // 如果是由日期变更触发的单号更新，不执行后续逻辑
+  if (isDateTriggeringOrderNumber.value) {
+    return;
+  }
+  
   if (isEdit.value && orderId.value && orderForm.order_number) {
     // 检查入库单号是否真的发生了更改
     if (orderForm.order_number === originalOrderForm.order_number) {
@@ -1783,8 +1888,16 @@ const handleContractNumberChange = async () => {
   }
 };
 
+// 标记：是否由入库日期变更触发的单号更新（防止递归）
+const isDateTriggeringOrderNumber = ref(false);
+
 // 入库日期变更处理（实时保存）
 const handleInboundDateChange = async () => {
+  // 同步更新入库单号中的日期部分
+  if (orderForm.inbound_date && orderForm.order_number) {
+    updateOrderNumberDate(orderForm.inbound_date);
+  }
+  
   if (isEdit.value && orderId.value && orderForm.inbound_date) {
     // 检查入库日期是否真的发生了更改
     if (orderForm.inbound_date === originalOrderForm.inbound_date) {
@@ -1793,7 +1906,9 @@ const handleInboundDateChange = async () => {
     }
     
     try {
-      await inboundOrderAPI.updateInboundOrder(orderId.value, { inbound_date: orderForm.inbound_date });
+      // 将日期转换为datetime格式（添加时间部分）
+      const createTime = `${orderForm.inbound_date}T00:00:00`;
+      await inboundOrderAPI.updateCreateTime(orderId.value, { create_time: createTime });
       // 更新成功后，保存当前入库日期作为新的原始值
       originalOrderForm.inbound_date = orderForm.inbound_date;
       ElMessage.success('入库日期更新成功');
@@ -1816,6 +1931,69 @@ const handleInboundDateChange = async () => {
         // 如果没有detail字段，使用原来的逻辑
         const errorMessage = error.response?.data?.message || error.message || '入库日期更新失败';
         ElMessage.error(`入库日期更新失败: ${errorMessage}`);
+      }
+    }
+  }
+};
+
+// 更新入库单号中的日期部分
+const updateOrderNumberDate = async (newDate: string) => {
+  if (!orderForm.order_number || isDateTriggeringOrderNumber.value) {
+    return;
+  }
+  
+  // 入库单号格式: RK20231225-001
+  // 匹配格式: RK + 8位数字(YYYYMMDD) + - + 3位数字
+  const orderNumberPattern = /^(RK)(\d{8})(-.+)$/;
+  const match = orderForm.order_number.match(orderNumberPattern);
+  
+  if (match) {
+    // 将日期格式从 YYYY-MM-DD 转换为 YYYYMMDD
+    const dateStr = newDate.replace(/-/g, '');
+    
+    // 检查日期格式是否正确（8位数字）
+    if (dateStr.length === 8 && /^\d{8}$/.test(dateStr)) {
+      try {
+        // 设置标记，防止触发handleOrderNumberChange
+        isDateTriggeringOrderNumber.value = true;
+        
+        // 调用后端API重新生成入库单号，避免重复单号
+        const response = await inboundOrderAPI.generateInboundOrderNumber(dateStr);
+        const newOrderNumber = response.order_number;
+        
+        orderForm.order_number = newOrderNumber;
+        
+        // 如果是编辑模式，需要调用API将新单号写入数据库
+        if (isEdit.value && orderId.value) {
+          try {
+            await inboundOrderAPI.updateOrderNumber(orderId.value, { order_number: newOrderNumber });
+            // 数据库更新成功后，同步更新原始值
+            originalOrderForm.order_number = newOrderNumber;
+            ElMessage.success('入库单号已更新');
+          } catch (updateError: any) {
+            // 数据库更新失败，恢复原单号
+            const updateErrorMessage = updateError.response?.data?.message || updateError.message || '入库单号写入数据库失败';
+            ElMessage.error(`入库单号更新失败: ${updateErrorMessage}`);
+            // 恢复原单号
+            orderForm.order_number = originalOrderForm.order_number;
+          }
+        } else {
+          // 新增模式，只更新前端表单
+          originalOrderForm.order_number = newOrderNumber;
+        }
+        
+        // 延迟重置标记
+        setTimeout(() => {
+          isDateTriggeringOrderNumber.value = false;
+        }, 100);
+      } catch (error: any) {
+        // 如果API调用失败，显示错误但不影响日期更新
+        console.error('重新生成入库单号失败:', error);
+        const errorMessage = error.response?.data?.message || error.message || '重新生成入库单号失败';
+        ElMessage.warning(`入库单号更新失败: ${errorMessage}，请手动修改`);
+        
+        // 重置标记
+        isDateTriggeringOrderNumber.value = false;
       }
     }
   }
@@ -1863,6 +2041,8 @@ const handleSave = async () => {
       console.log('入库单创建数据:', orderData);
       await inboundOrderAPI.createInboundOrder(orderData);
       ElMessage.success('入库单创建成功');
+      // 保存成功后清除草稿
+      clearDraft(DRAFT_KEY);
   }
   
   // 触发保存成功事件
@@ -1970,15 +2150,61 @@ const initData = async () => {
       );
       
       orderItems.value = itemsWithAdditionalInfo;
+      
+      // 编辑模式下清除草稿（如果有）
+      if (hasDraft(DRAFT_KEY)) {
+        clearDraft(DRAFT_KEY);
+      }
     } catch (error: any) {
       // 显示具体的错误原因
       const errorMessage = error.response?.data?.message || error.message || '加载入库单详情失败';
       ElMessage.error(`加载入库单详情失败: ${errorMessage}`);
     }
   } else {
-    // 新增模式，生成入库单号
-    orderForm.order_number = await generateOrderNumber();
-    orderForm.inbound_date = new Date().toISOString().split('T')[0];
+   // 新增模式：先检查是否有草稿
+    if (hasDraft(DRAFT_KEY)) {
+      try {
+        // 获取草稿时间戳
+        const timestamp = getDraftTimestamp(DRAFT_KEY);
+        const timeText = timestamp ? formatDraftTime(timestamp) : '未知时间';
+        
+        // 询问用户是否恢复草稿
+        await ElMessageBox.confirm(
+          `检测到未保存的草稿（保存于${timeText}），是否恢复？`,
+          '发现草稿',
+          {
+            confirmButtonText: '恢复草稿',
+            cancelButtonText: '放弃草稿',
+            type: 'info',
+            distinguishCancelAndClose: true
+          }
+        );
+        
+        // 用户点击"恢复草稿"按钮，对话框已自动关闭
+        const draftData = loadDraft<InboundOrderDraftData>(DRAFT_KEY);
+        if (draftData) {
+          // 恢复表单数据
+          Object.assign(orderForm, draftData.orderForm);
+          // 恢复明细数据
+          orderItems.value = draftData.orderItems;
+          ElMessage.success('草稿已恢复');
+        } else {
+          // 草稿加载失败，继续正常流程
+          orderForm.order_number = await generateOrderNumber();
+          orderForm.inbound_date = new Date().toISOString().split('T')[0];
+        }
+      } catch (error) {
+        // 用户点击"放弃草稿"或关闭对话框，对话框已自动关闭
+        clearDraft(DRAFT_KEY);
+        // 继续正常流程
+        orderForm.order_number = await generateOrderNumber();
+        orderForm.inbound_date = new Date().toISOString().split('T')[0];
+      }
+    } else {
+      // 没有草稿，正常生成入库单号
+      orderForm.order_number = await generateOrderNumber();
+      orderForm.inbound_date = new Date().toISOString().split('T')[0];
+    }
   }
 };
 
@@ -2037,24 +2263,23 @@ watch(() => props.editId, (newEditId: number | null | undefined) => {
   }
 }, { immediate: true });
 
+// 监听表单数据变化，自动保存草稿（仅新增模式）
+watch(() => orderForm, () => {
+  if (!isEdit.value) {
+    saveDraftDebounced();
+  }
+}, { deep: true });
+
+// 监听明细数据变化，自动保存草稿（仅新增模式）
+watch(() => orderItems.value, () => {
+  if (!isEdit.value) {
+    saveDraftDebounced();
+  }
+}, { deep: true });
+
 onMounted(() => {
-  // 检查是否为编辑模式，优先使用props中的editId
-  if (props.editId) {
-    isEdit.value = true;
-    orderId.value = props.editId;
-  } else {
-    // 如果没有通过props传递editId，则检查路由参数
-    const id = route.params.id;
-    if (id) {
-      isEdit.value = true;
-      orderId.value = parseInt(id as string);
-    }
-  }
-  
-  // 只在没有通过watch监听器调用的情况下才调用initData
-  if (!props.editId && !route.params.id) {
-    initData();
-  }
+  // watch 监听器已经处理了初始化逻辑（immediate: true）
+  // 这里不需要再次调用 initData()
 });
 </script>
 

@@ -129,7 +129,7 @@
           <!-- 操作列 -->
           <el-table-column 
             label="操作" 
-            width="260" 
+            width="230" 
             align="center" 
             fixed="right"
           >
@@ -148,13 +148,21 @@
                 :icon="Edit"
               >
               </el-button>
-              <el-button 
-                type="success" 
-                size="small" 
-                @click="handleExportPDF(row)"
-                :icon="Printer"
-              >
-              </el-button>
+              <el-dropdown class="action-dropdown" split-button type="success" size="small" @click="() => handleExportOutboundOrderExcel(row)">
+                <el-icon><Printer /></el-icon>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="() => handleExportPDF(row)">
+                      <el-icon><Document /></el-icon>
+                      导出PDF
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => handleExportOutboundOrderExcel(row)">
+                      <el-icon><DocumentCopy /></el-icon>
+                      导出Excel
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
               <el-button 
                 type="danger" 
                 size="small" 
@@ -205,7 +213,9 @@ import {
   Edit,
   Delete,
   View,
-  Printer
+  Printer,
+  Document,
+  DocumentCopy
 } from '@element-plus/icons-vue';
 import { outboundOrderAPI } from '@/services/material/outbound';
 import type { 
@@ -402,10 +412,10 @@ const handleEdit = (row: OutboundOrderResponse) => {
 
 // 创建Notification实例
 const createNotification = (progress: number, status?: 'success' | 'exception', message?: string) => {
-  const notificationMessage = message || `正在生成出库单PDF... ${progress}%`;
+  const notificationMessage = message || `正在导出出库单文件... ${progress}%`;
   
   return ElNotification({
-    title: 'PDF生成进度',
+    title: '导出出库单',
     message: h('div', [
       h('p', { style: 'margin: 0 0 8px 0;' }, notificationMessage),
       h(ElProgress, {
@@ -428,7 +438,7 @@ const handleExportPDF = async (row: OutboundOrderResponse) => {
   
   try {
     // 创建Notification实例，显示0%进度
-    notification = createNotification(0, undefined, `正在生成出库单 ${row.order_number} 的PDF文件...`);
+    notification = createNotification(0, undefined, `正在导出出库单 ${row.order_number} 的文件...`);
     
     // 模拟进度更新：0% -> 50%
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -437,7 +447,7 @@ const handleExportPDF = async (row: OutboundOrderResponse) => {
     if (notification) {
       notification.close();
     }
-    notification = createNotification(50, undefined, `正在生成出库单 ${row.order_number} 的PDF文件...`);
+    notification = createNotification(50, undefined, `正在导出出库单 ${row.order_number} 的文件...`);
     
     // 调用PDF导出API
     const pdfBlob = await outboundOrderAPI.generateOutboundOrderPDF(row.order_number);
@@ -446,7 +456,7 @@ const handleExportPDF = async (row: OutboundOrderResponse) => {
     if (notification) {
       notification.close();
     }
-    notification = createNotification(100, 'success', `出库单 ${row.order_number} 的PDF文件生成成功！`);
+    notification = createNotification(100, 'success', `出库单 ${row.order_number} 的文件导出成功！`);
     
     // 创建下载链接
     const url = window.URL.createObjectURL(pdfBlob);
@@ -470,12 +480,12 @@ const handleExportPDF = async (row: OutboundOrderResponse) => {
     }
     
     // 显示最终成功消息
-    ElMessage.success('PDF文件生成成功，正在下载...');
+    ElMessage.success('出库单文件导出成功，正在下载...');
   } catch (error: any) {
     // 显示错误状态
     if (notification) {
       notification.close();
-      notification = createNotification(100, 'exception', `出库单 ${row.order_number} 的PDF文件生成失败！`);
+      notification = createNotification(100, 'exception', `出库单 ${row.order_number} 的文件导出失败！`);
       
       // 延迟2秒后关闭错误通知
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -485,6 +495,72 @@ const handleExportPDF = async (row: OutboundOrderResponse) => {
     // 显示具体的错误原因
     const errorMessage = error.response?.data?.message || error.message || 'PDF导出失败';
     ElMessage.error(`PDF导出失败: ${errorMessage}`);
+  }
+};
+
+// 导出出库单Excel
+const handleExportOutboundOrderExcel = async (row: OutboundOrderResponse) => {
+  let notification: any = null;
+  
+  try {
+    // 创建Notification实例，显示0%进度
+    notification = createNotification(0, undefined, `正在导出出库单 ${row.order_number} 的文件...`);
+    
+    // 模拟进度更新：0% -> 50%
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // 更新现有通知
+    if (notification) {
+      notification.close();
+    }
+    notification = createNotification(50, undefined, `正在导出出库单 ${row.order_number} 的文件...`);
+    
+    // 调用Excel导出API
+    const excelBlob = await outboundOrderAPI.generateOutboundOrderExcel(row.order_number);
+    
+    // 更新进度到100%，显示成功状态
+    if (notification) {
+      notification.close();
+    }
+    notification = createNotification(100, 'success', `出库单 ${row.order_number} 的文件导出成功！`);
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(excelBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `出库单_${row.order_number}.xlsx`;
+    
+    // 触发下载
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // 清理URL
+    window.URL.revokeObjectURL(url);
+    
+    // 延迟1秒后关闭通知
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (notification) {
+      notification.close();
+    }
+    
+    // 显示最终成功消息
+    ElMessage.success('出库单文件导出成功，正在下载...');
+  } catch (error: any) {
+    // 显示错误状态
+    if (notification) {
+      notification.close();
+      notification = createNotification(100, 'exception', `出库单 ${row.order_number} 的文件导出失败！`);
+      
+      // 延迟2秒后关闭错误通知
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      notification.close();
+    }
+    
+    // 显示具体的错误原因
+    const errorMessage = error.response?.data?.message || error.message || 'Excel导出失败';
+    ElMessage.error(`Excel导出失败: ${errorMessage}`);
   }
 };
 
@@ -531,4 +607,10 @@ defineExpose({
 
 /* 使用现代Sass混入 */
 @include mixins.table-sort-arrows;
+
+/* 操作列下拉菜单样式 */
+.action-dropdown {
+  margin: 0 4px;
+  vertical-align: middle;
+}
 </style>

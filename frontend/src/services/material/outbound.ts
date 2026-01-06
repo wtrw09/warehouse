@@ -169,5 +169,15 @@ export const outboundOrderAPI = {
       responseType: 'blob'
     });
     return response.data;
+  },
+
+  /**
+   * 生成出库单Excel文件
+   */
+  generateOutboundOrderExcel: async (orderNumber: string): Promise<Blob> => {
+    const response = await api.get(`/outbound-orders/excel/${orderNumber}`, {
+      responseType: 'blob'
+    });
+    return response.data;
   }
 };

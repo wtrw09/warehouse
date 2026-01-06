@@ -111,10 +111,12 @@ WarehouseManagement/
 │   │   ├── stores/         # 状态管理
 │   │   └── router/         # 路由配置
 │   └── package.json
-├── warehouseBackend/       # 数据存储目录
+├── warehouseBackend/       # 数据存储目录,**运行后自动生成**
 │   ├── data/              # 数据库文件
 │   ├── logs/              # 日志文件
 │   └── backups/           # 备份文件
+├── config/                # nginx配置文件,**运行后自动生成**
+├── logs/nginx/                # nginx日志文件,**运行后自动生成**
 └── docker-compose.yml     # Docker编排配置
 ```
 

@@ -124,6 +124,11 @@ class ContractNumberUpdate(BaseModel):
     contract_reference: str = Field(..., description="新合同参考号")
 
 
+class InboundCreateTimeUpdate(BaseModel):
+    """入库单创建时间更新模型"""
+    create_time: datetime = Field(..., description="创建时间")
+
+
 class InboundOrderItemUpdate(BaseModel):
     """入库单明细更新模型"""
     material_id: Optional[int] = Field(None, description="器材ID")

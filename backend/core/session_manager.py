@@ -256,14 +256,14 @@ class SessionManager:
         try:
             session_data = await self.get_session(user_id)
             if not session_data:
-                print(f"[DEBUG] is_session_valid - 未找到会话数据: user_id={user_id}")
+                # print(f"[DEBUG] is_session_valid - 未找到会话数据: user_id={user_id}")
                 return False
                 
             # 检查会话是否活跃
             active = session_data.get("active", False)
-            print(f"[DEBUG] is_session_valid - 获取active字段: {active}, 类型: {type(active)}")
+            # print(f"[DEBUG] is_session_valid - 获取active字段: {active}, 类型: {type(active)}")
             if not active:
-                print(f"[DEBUG] is_session_valid - 会话不活跃: user_id={user_id}, active={active}")
+                # print(f"[DEBUG] is_session_valid - 会话不活跃: user_id={user_id}, active={active}")
                 return False
             
             last_activity = session_data.get("last_activity", 0)
@@ -271,15 +271,15 @@ class SessionManager:
             timeout_seconds = dynamic_settings.SLIDING_SESSION_TIMEOUT_MINUTES * 60
             time_diff = current_time - last_activity
 
-            print(f"[DEBUG] is_session_valid - user_id={user_id}, active={active}, last_activity={last_activity}, current_time={current_time}, timeout_seconds={timeout_seconds}, time_diff={time_diff}, expires_at={session_data.get('expires_at', 'N/A')}")
+            # print(f"[DEBUG] is_session_valid - user_id={user_id}, active={active}, last_activity={last_activity}, current_time={current_time}, timeout_seconds={timeout_seconds}, time_diff={time_diff}, expires_at={session_data.get('expires_at', 'N/A')}")
             # 检查是否超时
             if time_diff > timeout_seconds:
                 # 会话超时，标记为不活跃
-                print(f"[DEBUG] is_session_valid - 会话超时，标记为不活跃: user_id={user_id}, time_diff={time_diff} > timeout_seconds={timeout_seconds}")
+                # print(f"[DEBUG] is_session_valid - 会话超时，标记为不活跃: user_id={user_id}, time_diff={time_diff} > timeout_seconds={timeout_seconds}")
                 await self.invalidate_session(user_id)
                 return False
             
-            print(f"[DEBUG] is_session_valid - 会话有效: user_id={user_id}")
+            # print(f"[DEBUG] is_session_valid - 会话有效: user_id={user_id}")
             return True
         except Exception as e:
             print(f"检查会话有效性失败: {e}")

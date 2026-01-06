@@ -69,14 +69,20 @@ README.md
 # initialize/
 
 # 测试和示例文件（如果有的话）
-test*
+test_*
+test-*
 example*
 sample*
 
 # 临时文件和目录
-temp*
+temp_*
+temp-*
 tmp*
 *.tmp
+
+# 但需要保留template目录（Excel模板文件）
+!template/
+!template/**
 
 # 字体文件（需要保留，用于PDF生成和报表打印）
 # fonts/  # 注释掉，字体文件需要包含在镜像中
