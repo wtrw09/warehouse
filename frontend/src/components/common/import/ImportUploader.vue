@@ -3,7 +3,6 @@
     <!-- 文件上传区域 -->
     <div class="upload-section">
       <el-upload
-        ref="uploadRef"
         action="#"
         :auto-upload="false"
         :show-file-list="false"
@@ -35,6 +34,7 @@
           :rows="8"
           :placeholder="generatePastePlaceholder()"
           @input="handlePasteInput"
+          @keydown.tab="handleTabKey"
           class="paste-textarea"
         />
         <div class="paste-tips">
@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { ElMessage, ElUpload } from 'element-plus';
 import { UploadFilled, InfoFilled } from '@element-plus/icons-vue';
 import * as XLSX from 'xlsx';
@@ -77,7 +77,6 @@ const emit = defineEmits<{
 }>();
 
 // Refs
-const uploadRef = ref<InstanceType<typeof ElUpload>>();
 const pasteData = ref('');
 
 // Computed
@@ -182,6 +181,20 @@ const handlePasteInput = () => {
       ElMessage.warning(`粘贴${props.config.entityName}数据超过${MAX_PASTE_ROWS}条，建议使用Excel文件导入`);
     }
   }
+};
+
+const handleTabKey = (e: KeyboardEvent) => {
+  e.preventDefault();
+  const target = e.target as HTMLTextAreaElement;
+  const start = target.selectionStart;
+  const end = target.selectionEnd;
+  
+  const text = pasteData.value;
+  pasteData.value = text.substring(0, start) + '\t' + text.substring(end);
+  
+  nextTick(() => {
+    target.selectionStart = target.selectionEnd = start + 1;
+  });
 };
 
 const handlePasteData = () => {

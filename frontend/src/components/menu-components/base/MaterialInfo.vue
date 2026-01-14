@@ -249,11 +249,7 @@
                   <el-input 
                     v-model="form.material_code" 
                     placeholder="可不用输入，自动生成" 
-                    @focus="() => {
-                      showMaterialCodePanel = true;
-                      showEquipmentPanel = false;
-                      showMaterialSearchPanel = false;
-                    }"
+                    @focus="handleMaterialCodeFocus"
                   />
                 </el-form-item>
                 
@@ -328,6 +324,10 @@
                         showMaterialCodePanel = false;
                         showEquipmentPanel = true;
                         showMaterialSearchPanel = false;
+                        // 根据当前选择的专业筛选装备
+                        equipmentSearchParams.major_id = form.major_id;
+                        equipmentSearchParams.page = 1;
+                        searchEquipments();
                       }"
                     >
                       <template #append>
@@ -657,8 +657,8 @@ const lastMenuType = ref<'create' | 'edit' | null>(null)
 const originalFormData = ref<typeof form | null>(null)
 
 const rules: FormRules = {
-  material_code: [{ required: true, message: '请输入器材编码', trigger: 'blur' }],
-  material_name: [{ required: true, message: '请输入器材名称', trigger: 'blur' }]
+  material_code: [{ required: true, message: '请输入器材编码', trigger: ['blur', 'change'] }],
+  material_name: [{ required: true, message: '请输入器材名称', trigger: ['blur', 'change'] }]
 };
 
 const tableData = ref<MaterialResponse[]>([]);
@@ -730,10 +730,80 @@ const materialCodeSearchParams = reactive({
   page_size: 10
 });
 
+// 处理器材编码输入框获取焦点事件
+const handleMaterialCodeFocus = async () => {
+  if (dialogTitle.value === '编辑器材' && form.material_code) {
+    // 编辑模式下，根据当前器材编码解析并填充专业数据
+    try {
+      // 显示器材编码面板
+      showMaterialCodePanel.value = true;
+      showEquipmentPanel.value = false;
+      showMaterialSearchPanel.value = false;
+      
+      // 解析器材编码（假设编码格式为：一级专业代码 + 二级专业代码 + 序列号）
+      const materialCode = form.material_code;
+      
+      // 确保专业数据已加载
+      if (primaryMajors.value.length === 0 || secondaryMajors.value.length === 0) {
+        await loadAllMaterialCodeLevels();
+      }
+      
+      // 尝试匹配一级专业（一般为1-2位）
+      let matchedPrimary = null;
+      let matchedSecondary = null;
+      
+      // 遍历所有一级专业，找到匹配的
+      for (const primary of primaryMajors.value) {
+        if (primary.major_code && materialCode.startsWith(primary.major_code)) {
+          matchedPrimary = primary;
+          
+          // 尝试匹配二级专业
+          const remainingCode = materialCode.substring(primary.major_code.length);
+          
+          // 遍历此一级专业下的所有二级专业
+          for (const secondary of secondaryMajors.value) {
+            if (secondary.major_id === primary.id && 
+                secondary.sub_major_code && 
+                remainingCode.startsWith(secondary.sub_major_code)) {
+              matchedSecondary = secondary;
+              break;
+            }
+          }
+          break;
+        }
+      }
+      
+      // 填充专业选择
+      if (matchedPrimary) {
+        selectedPrimaryMajor.value = matchedPrimary.major_code;
+        
+        // 加载二级专业
+        await handlePrimaryMajorChange();
+        
+        if (matchedSecondary) {
+          selectedSecondaryMajor.value = matchedSecondary.sub_major_code;
+          // 选中对应的二级专业项
+          selectedMaterialCodeLevel.value = matchedSecondary;
+        }
+        
+        // 生成推荐编码
+        await generateRecommendedMaterialCode();
+      }
+    } catch (error) {
+      console.error('解析器材编码失败:', error);
+    }
+  } else {
+    // 新建模式下，保持原有行为
+    showMaterialCodePanel.value = true;
+    showEquipmentPanel.value = false;
+    showMaterialSearchPanel.value = false;
+  }
+};
+
 // 监听器材名称变化，自动填充到右侧搜索框
 watch(() => form.material_name, (newValue, oldValue) => {
-  // 只有当左侧器材名称发生变化且不为空时，才自动填充到右侧搜索框
-  if (newValue && newValue !== oldValue) {
+  // 只在新建模式下自动填充和搜索
+  if (dialogTitle.value === '新增器材' && newValue && newValue !== oldValue) {
     // 填充到器材搜索框
     materialSearchParams.search = newValue;
     // 填充到专业搜索框
@@ -1522,6 +1592,9 @@ const handlePrimaryMajorChange = async () => {
     // console.log('选中的一级专业:', primaryItem);
     if (primaryItem && primaryItem.id) {
       try {
+        // 设置到表单的所属专业中
+        form.major_id = primaryItem.id;
+        
         // 根据一级专业ID获取对应的二级专业
         const response = await subMajorAPI.getSubMajors({ major_id: primaryItem.id });
         
@@ -1549,6 +1622,8 @@ const handlePrimaryMajorChange = async () => {
       secondaryMajors.value = [];
     }
   } else {
+    // 清空表单的所属专业
+    form.major_id = undefined;
     secondaryMajors.value = [];
   }
   

@@ -170,6 +170,8 @@ WarehouseManagement/
 1. **克隆项目**
 ```bash
 git clone https://gitee.com/wtrw09/warehouse.git
+#或
+git clone https://github.com/wtrw09/warehouse.git
 cd WarehouseManagement
 ```
 2. **从Registry中拉取镜像**
@@ -200,11 +202,6 @@ $ sudo ./start-containers.sh
 ```
 4. **访问系统**
 `http://localhost:8081/login`或者`http://[你的电脑IP地址]:8081/login`
-
-3. **访问系统**
-- 前端应用: http://localhost:8081
-- 后端API: http://localhost:8000
-- Redis服务: localhost:6379
 
 ### 6.3手动部署
 1. **克隆项目**

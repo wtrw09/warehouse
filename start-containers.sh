@@ -165,18 +165,19 @@ else
     echo -e "${GREEN}✓ 前端nginx日志目录已存在: $FRONTEND_LOGS_DIR${NC}"
 fi
 
-# 检查nginx配置文件是否存在,不存在时创建空文件(容器启动时会自动从镜像复制)
+# 检查nginx配置文件是否存在，不存在或无效时从源码复制
 NGINX_CONF_PATH="$CONFIG_DIR/nginx.conf"
-if [ ! -f "$NGINX_CONF_PATH" ]; then
-    # 创建空文件,容器启动时会自动从镜像复制配置
-    touch "$NGINX_CONF_PATH"
-    # 立即设置文件权限,确保容器可以写入
-    chmod 666 "$NGINX_CONF_PATH" 2>/dev/null || sudo chmod 666 "$NGINX_CONF_PATH" 2>/dev/null || true
-    echo -e "${YELLOW}✓ 创建空配置文件: $NGINX_CONF_PATH (容器启动时将自动从镜像复制)${NC}"
+if [ ! -f "$NGINX_CONF_PATH" ] || [ ! -s "$NGINX_CONF_PATH" ]; then
+    # 从 frontend 源码复制默认配置
+    if [ -f "frontend/config/nginx.conf" ]; then
+        cp "frontend/config/nginx.conf" "$NGINX_CONF_PATH"
+        chmod 644 "$NGINX_CONF_PATH" 2>/dev/null || sudo chmod 644 "$NGINX_CONF_PATH" 2>/dev/null || true
+        echo -e "${GREEN}✓ 从源码复制nginx配置文件: $NGINX_CONF_PATH${NC}"
+    else
+        echo -e "${YELLOW}⚠ 未找到nginx配置模板，容器启动时将自动从镜像复制${NC}"
+    fi
 else
     echo -e "${GREEN}✓ nginx配置文件已存在: $NGINX_CONF_PATH${NC}"
-    # 确保已存在的文件也有正确的权限
-    chmod 666 "$NGINX_CONF_PATH" 2>/dev/null || sudo chmod 666 "$NGINX_CONF_PATH" 2>/dev/null || true
 fi
 
 # 设置目录权限（确保容器内的 appuser UID 1000 可以访问）
@@ -194,23 +195,13 @@ if [ "$USE_SUDO" = true ]; then
     # 使用 sudo 修复权限
     echo -e "${CYAN}使用 sudo 修复权限...${NC}"
     if sudo chown -R 1000:1000 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR" 2>/dev/null; then
-        sudo chmod -R 755 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" logs "$FRONTEND_LOGS_DIR" 2>/dev/null || true
-        # config目录单独处理,避免覆盖nginx.conf的666权限
-        sudo chmod 755 "$CONFIG_DIR" 2>/dev/null || true
+        sudo chmod -R 755 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR" 2>/dev/null || true
         echo -e "${GREEN}✓ 权限设置完成 (使用 sudo)${NC}"
     else
         echo -e "${YELLOW}⚠ 需要 root 权限,请输入密码${NC}"
         sudo chown -R 1000:1000 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR"
-        sudo chmod -R 755 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" logs "$FRONTEND_LOGS_DIR"
-        # config目录单独处理,避免覆盖nginx.conf的666权限
-        sudo chmod 755 "$CONFIG_DIR" 2>/dev/null || true
+        sudo chmod -R 755 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR"
         echo -e "${GREEN}✓ 权限设置完成${NC}"
-    fi
-    
-    # 确保nginx.conf保持666权限(容器可读写)
-    if [ -f "$NGINX_CONF_PATH" ]; then
-        sudo chmod 666 "$NGINX_CONF_PATH" 2>/dev/null || true
-        echo -e "${GREEN}✓ nginx.conf权限已设置为666(容器可写)${NC}"
     fi
     
     # 如果有数据库文件，确保权限正确
@@ -223,20 +214,13 @@ if [ "$USE_SUDO" = true ]; then
 else
     # 不使用 sudo
     if chown -R 1000:1000 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR" 2>/dev/null && \
-       chmod -R 755 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" logs "$FRONTEND_LOGS_DIR" 2>/dev/null && \
-       chmod 755 "$CONFIG_DIR" 2>/dev/null; then
+       chmod -R 755 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR" 2>/dev/null; then
         echo -e "${GREEN}✓ 权限设置完成${NC}"
         
         # 如果有数据库文件,确保权限正确
         if [ -f "$DATA_DIR/data/system_config.db" ]; then
             chown 1000:1000 "$DATA_DIR/data/system_config.db" 2>/dev/null || true
             chmod 644 "$DATA_DIR/data/system_config.db" 2>/dev/null || true
-        fi
-        
-        # 确保nginx.conf保持666权限(容器可读写)
-        if [ -f "$NGINX_CONF_PATH" ]; then
-            chmod 666 "$NGINX_CONF_PATH" 2>/dev/null || true
-            echo -e "${GREEN}✓ nginx.conf权限已设置为666(容器可写)${NC}"
         fi
     else
         echo -e "${YELLOW}⚠ 无法设置精确权限,尝试设置为 777${NC}"

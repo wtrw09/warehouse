@@ -80,12 +80,20 @@ foreach ($dir in $frontendDirs) {
     }
 }
 
-# 检查nginx配置文件是否存在，不存在时创建空文件（容器启动时会自动从镜像复制）
+# 检查nginx配置文件是否存在，不存在或无效时从源码复制
 $nginxConfPath = "config/nginx.conf"
-if (-not (Test-Path $nginxConfPath)) {
-    # 创建空文件，容器启动时会自动从镜像复制配置
-    New-Item -ItemType File -Path $nginxConfPath -Force | Out-Null
-    Write-Host "✓ 创建空配置文件: $nginxConfPath （容器启动时将自动从镜像复制）" -ForegroundColor Yellow
+$nginxConfSource = "frontend/config/nginx.conf"
+
+if ((-not (Test-Path $nginxConfPath)) -or ((Get-Item $nginxConfPath).Length -eq 0)) {
+    # 从 frontend 源码复制默认配置
+    if (Test-Path $nginxConfSource) {
+        Copy-Item -Path $nginxConfSource -Destination $nginxConfPath -Force
+        Write-Host "✓ 从源码复制nginx配置文件: $nginxConfPath" -ForegroundColor Green
+    } else {
+        Write-Host "⚠ 未找到nginx配置模板，容器启动时将自动从镜像复制" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "✓ nginx配置文件已存在: $nginxConfPath" -ForegroundColor Green
 }
 
 Write-Host ""

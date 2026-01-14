@@ -276,7 +276,6 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { 
   Plus, 
   Refresh, 
-  Search,
   List, 
   Edit, 
   Delete
@@ -581,7 +580,7 @@ const handleBatchDelete = async () => {
     );
     
     await equipmentApi.batchDelete({
-      ids: selectedIds.value
+      equipment_ids: selectedIds.value
     });
     ElMessage.success('批量删除成功');
     selectedIds.value = [];

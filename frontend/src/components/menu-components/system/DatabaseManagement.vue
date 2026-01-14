@@ -58,7 +58,7 @@
             <el-text class="search-label">搜索：</el-text>
             <el-input
               v-model="searchParams.search"
-              placeholder="请输入备份文件名或描述"
+              placeholder="请输入备份文件名"
               style="width: 300px;"
               clearable
               @input="debouncedSearch"
@@ -143,11 +143,7 @@
               </template>
             </el-table-column>
             
-            <el-table-column prop="description" label="描述" min-width="200" align="center">
-              <template #default="{ row }">
-                <el-text type="info" size="small">{{ row.description || '-' }}</el-text>
-              </template>
-            </el-table-column>
+
             
             <el-table-column label="操作" width="100" align="center" fixed="right">
               <template #default="{ row }">
@@ -461,17 +457,17 @@ const loadStatistics = async () => {
 
 // 计算属性：过滤后的备份列表
 const filteredBackupList = computed(() => {
-  if (!searchParams.value.search || !searchParams.value.search.trim()) {
-    return backupList.value;
-  }
-  
-  const keywords = (searchParams.value.search || '').trim().toLowerCase().split(/\s+/);
-  
-  return backupList.value.filter(backup => {
-    const searchText = `${backup.filename} ${backup.description || ''}`.toLowerCase();
-    return keywords.every((keyword: string) => searchText.includes(keyword));
+    if (!searchParams.value.search || !searchParams.value.search.trim()) {
+      return backupList.value;
+    }
+    
+    const keywords = (searchParams.value.search || '').trim().toLowerCase().split(/\s+/);
+    
+    return backupList.value.filter(backup => {
+      const searchText = `${backup.filename}`.toLowerCase();
+      return keywords.every((keyword: string) => searchText.includes(keyword));
+    });
   });
-});
 
 
 

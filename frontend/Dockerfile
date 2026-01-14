@@ -70,8 +70,8 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
 
-# 设置启动脚本
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# 设置启动脚本（使用sh明确调用）
+ENTRYPOINT ["/bin/sh", "/docker-entrypoint.sh"]
 
 # 启动nginx
 CMD ["nginx", "-g", "daemon off;"]

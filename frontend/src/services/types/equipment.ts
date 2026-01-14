@@ -46,7 +46,7 @@ export interface EquipmentQueryParams {
 }
 
 export interface EquipmentBatchDeleteRequest {
-  ids: number[];
+  equipment_ids: number[];
 }
 
 export interface EquipmentBatchDeleteResponse {

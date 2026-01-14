@@ -14,8 +14,8 @@ services:
       - VITE_DEV_TOOLS=false
       - VITE_HMR=false
     volumes:
-      # 挂载nginx配置文件，支持外部修改（优先使用外部，不存在时从容器复制出来）
-      - ./config/nginx.conf:/etc/nginx/nginx.conf
+      # 挂载整个config目录（支持容器内自动创建文件）
+      - ./config:/etc/nginx/conf-external
       # 挂载nginx日志目录,方便查看日志
       - ./logs/nginx:/var/log/nginx
     restart: unless-stopped

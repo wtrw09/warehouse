@@ -349,7 +349,7 @@
 <script setup lang="ts">
 import { inject,ref,Ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Refresh, Search, Edit, Delete, List, Upload, Download } from '@element-plus/icons-vue'
+import { Plus, Refresh, Edit, Delete, List, Upload, Download } from '@element-plus/icons-vue'
 import { supplierAPI } from '@/services/base/supplier'
 import type { SupplierResponse, SupplierCreate, SupplierUpdate, SupplierStatistics, SupplierQueryParams } from '@/services/types/supplier'
 import type { BatchImportResult } from '@/services/types/import'

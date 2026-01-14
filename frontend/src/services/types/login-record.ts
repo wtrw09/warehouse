@@ -1,4 +1,4 @@
-import { PaginationParams, PaginationResult } from './common';
+import { PaginationParams } from './common';
 
 // 登录记录相关类型
 export interface LoginRecordResponse {
