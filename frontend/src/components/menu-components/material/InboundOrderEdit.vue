@@ -53,10 +53,14 @@
               <el-select
                 v-else
                 v-model="orderForm.supplier_id"
-                placeholder="选择供应商"
+                placeholder="请选择或搜索供应商"
                 filterable
+                remote
+                :remote-method="remoteSearchSuppliers"
+                :loading="supplierLoading"
                 style="width: 100%"
                 @change="handleSupplierChange"
+                @visible-change="bindSupplierScrollListener"
               >
                 <!-- 如果当前供应商已被删除，显示为禁用选项 -->
                 <el-option
@@ -137,7 +141,7 @@
 
       <div class="base-table base-table--auto-height">
         <el-table
-          :data="orderItems"
+          :data="paginatedItems"
           stripe
           border
           :empty-text="'暂无入库明细数据'"
@@ -149,27 +153,43 @@
           width="60" 
           align="center" 
           fixed="left"
-        />
+        >
+          <template #default="{ $index }">
+            <span v-memo="[getRealIndex($index)]">{{ getRealIndex($index) + 1 }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="material_code" 
           label="器材编码" 
           width="120" 
           align="center" 
           fixed="left"
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.material_code]">{{ row.material_code }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="material_name" 
           label="器材名称" 
           min-width="100" 
           align="center" 
           fixed="left"
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.material_name]">{{ row.material_name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="material_specification" 
           label="器材规格" 
           width="100" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.material_specification]">{{ row.material_specification }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="quantity" 
           label="数量" 
@@ -183,7 +203,7 @@
               :precision="0"
               size="small"
               controls-position="right"
-              @change="handleQuantityChange($index)"
+              @change="handleQuantityChange(getRealIndex($index))"
               :class="{ 'error-border': row.quantity <= 0 || !Number.isInteger(row.quantity) }"
               style="width: 100%"
               :disabled="props.readonly"
@@ -205,7 +225,7 @@
               :step="0.001"
               size="small"
               controls-position="right"
-              @change="handleUnitPriceChange($index)"
+              @change="handleUnitPriceChange(getRealIndex($index))"
               :class="{ 'error-border': row.unit_price < 0 || (row.unit_price !== null && row.unit_price.toString().split('.')[1]?.length > 3) }"
               style="width: 100%"
               :disabled="props.readonly"
@@ -217,7 +237,11 @@
           label="单位" 
           width="60" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.unit]">{{ row.unit }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="amount" 
           label="金额" 
@@ -225,7 +249,9 @@
           align="center" 
         >
           <template #default="{ row }">
-            {{ row.unit_price && row.quantity ? `¥${Number((row.unit_price * row.quantity).toFixed(2))}` : '-' }}
+            <span v-memo="[row.detail_id, row.unit_price, row.quantity]">
+              {{ row.unit_price && row.quantity ? `¥${Number((row.unit_price * row.quantity).toFixed(2))}` : '-' }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column 
@@ -233,31 +259,51 @@
           label="批次编码" 
           width="120" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.batch_number]">{{ row.batch_number }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="warehouse_name" 
           label="仓库" 
           width="100" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.warehouse_name]">{{ row.warehouse_name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="bin_name" 
           label="货位" 
           width="100" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.bin_name]">{{ row.bin_name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="major_name" 
           label="专业" 
           width="80" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.major_name]">{{ row.major_name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="equipment_name" 
           label="装备" 
           width="80" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.equipment_name]">{{ row.equipment_name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="production_date" 
           label="生产日期" 
@@ -265,7 +311,9 @@
           align="center" 
         >
           <template #default="{ row }">
-            {{ formatDate(row.production_date) }}
+            <span v-memo="[row.detail_id, row.production_date]">
+              {{ formatDate(row.production_date) }}
+            </span>
           </template>
         </el-table-column>
         
@@ -281,20 +329,35 @@
             <el-button 
               type="primary" 
               size="small" 
-              @click="handleEditItem($index, row)"
+              @click="handleEditItem(getRealIndex($index), row)"
               :icon="Edit"
             >
             </el-button>
             <el-button 
               type="danger" 
               size="small" 
-              @click="removeItem($index)"
+              @click="removeItem(getRealIndex($index))"
               :icon="Delete"
+              :loading="deleting"
+              :disabled="deleting"
             >
             </el-button>
           </template>
         </el-table-column>
         </el-table>
+      </div>
+
+      <!-- 分页器 -->
+      <div class="base-pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="orderItems.length"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="currentPage = 1"
+          background
+        />
       </div>
     </el-card>
 
@@ -309,7 +372,7 @@
       v-model="materialDrawerVisible"
       :title="isEditing ? '编辑器材' : '选择器材'"
       direction="ttb"
-      size="80%"
+      size="85%"
       :before-close="handleDrawerClose"
       class="material-select-drawer"
     >
@@ -472,7 +535,7 @@
           <!-- 筛选区域 -->
           <div class="material-filter-section" v-if="!showBinList">
             <el-row :gutter="20" >
-              <el-col :span="6">
+              <el-col :span="8">
                 <el-select
                   v-model="materialFilter.major_id"
                   placeholder="选择专业"
@@ -488,7 +551,7 @@
                   />
                 </el-select>
               </el-col>
-              <el-col :span="6" >
+              <el-col :span="8" >
                 <el-select
                   v-model="materialFilter.equipment_id"
                   placeholder="选择装备"
@@ -504,7 +567,7 @@
                   />
                 </el-select>
               </el-col>
-              <el-col :span="12">
+              <el-col :span="8">
                 <el-input
                   v-model="materialFilter.search"
                   placeholder="搜索器材编码、名称、规格型号"
@@ -512,6 +575,32 @@
                   @input="handleMaterialFilterChange"
                   @clear="handleMaterialFilterChange"
                 />
+              </el-col>
+            </el-row>
+            
+            <!-- 定位器材单独一行 -->
+            <el-row :gutter="20" style="margin-top: 12px;">
+              <el-col :span="24">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <label style="min-width: 70px; font-weight: 500; color: #606266;">定位器材:</label>
+                  <el-input
+                    v-model="materialLocateCode"
+                    placeholder="请输入器材编码"
+                    clearable
+                    @input="handleLocateInputChange"
+                    @keyup.enter="handleMaterialLocate"
+                    @clear="handleMaterialLocateClear"
+                    style="flex: 1;"
+                  >
+                    <template #append>
+                      <el-button 
+                        :icon="Location" 
+                        @click="handleMaterialLocate"
+                        :loading="locating"
+                      />
+                    </template>
+                  </el-input>
+                </div>
               </el-col>
             </el-row>
           </div>
@@ -550,12 +639,15 @@
           <!-- 器材列表 -->
           <div class="material-table-section" v-if="!showBinList">
             <el-table
+              ref="materialTableRef"
               :data="materialList"
+              row-key="id"
               stripe
               border
-              height="350"
+              height="100%"
               :empty-text="'暂无器材数据'"
               @row-dblclick="handleMaterialDoubleClick"
+              :row-class-name="getRowClassName"
               class="material-table"
             >
               <el-table-column prop="material_code" label="器材编码" width="120" align="center" />
@@ -578,7 +670,7 @@
               :data="binList"
               stripe
               border
-              height="400"
+              height="100%"
               :empty-text="'暂无货位数据'"
               @row-dblclick="handleBinDoubleClick"
               class="material-table"
@@ -609,13 +701,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
   List, 
   Delete,
   Plus,
   Edit,
+  Location,
 } from '@element-plus/icons-vue';
 import { inboundOrderAPI } from '@/services/material/inbound';
 import { supplierAPI } from '@/services/base/supplier';
@@ -662,6 +755,7 @@ const props = defineProps<{
 const isEdit = ref(false);
 const orderId = ref<number | null>(null);
 const saving = ref(false);
+const deleting = ref(false); // 删除状态锁
 
 // 入库单表单
 const orderForm = reactive({
@@ -708,6 +802,18 @@ const orderItems = ref<ExtendedInboundOrderItem[]>([]);
 
 // 筛选选项
 const supplierOptions = ref<{ value: number; label: string }[]>([]);
+// 供应商加载状态
+const supplierLoading = ref(false);
+// 搜索防抖定时器
+let searchTimer: NodeJS.Timeout | null = null;
+// 供应商分页状态
+const supplierPagination = reactive({
+  currentPage: 1,
+  pageSize: 50,
+  totalPages: 0,
+  hasMore: true,
+  currentSearch: '' // 当前搜索关键字
+});
 
 // 判断当前供应商是否已被删除
 const isSupplierDeleted = computed(() => {
@@ -728,6 +834,13 @@ const materialFilter = reactive({
   search: ''
 });
 
+// 器材定位相关变量
+const materialLocateCode = ref(''); // 定位用的器材编码
+const locating = ref(false); // 定位加载状态
+const highlightedMaterialId = ref<number | null>(null); // 高亮的器材ID
+const isLocatingScroll = ref(false); // 标记是否正在执行定位滚动锁定
+const materialTableRef = ref(); // 器材表格ref
+
 // 货位筛选条件
 const binFilter = reactive({
   search: '',
@@ -736,6 +849,12 @@ const binFilter = reactive({
 
 // 器材列表数据
 const materialList = ref<MaterialResponse[]>([]);
+const materialFirstPage = ref(1); // 记录当前列表的第一页页码
+const materialLastPage = ref(1);  // 记录当前列表的最后一页页码
+const materialHasMore = ref(true);
+const loadingMoreMaterials = ref(false);
+const MAX_MATERIAL_ITEMS = 50; // 超过50项后修剪前端数据，防止卡顿
+const materialRequestId = ref(0); // 请求 ID，用于防止异步竞态冲突
 
 // 货位列表
 const binList = ref<Bin[]>([]);
@@ -805,6 +924,22 @@ const validationErrors = reactive({
   bin_id: false
 });
 
+// 入库明细分页相关变量
+const currentPage = ref(1);
+const pageSize = ref(20);
+
+// 计算属性：分页后的入库明细数据
+const paginatedItems = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return orderItems.value.slice(start, end);
+});
+
+// 计算当前页的真实索引（用于操作原始数组）
+const getRealIndex = (pageIndex: number): number => {
+  return (currentPage.value - 1) * pageSize.value + pageIndex;
+};
+
 // 草稿自动保存方法
 const saveDraftData = () => {
   // 仅在新增模式下保存草稿
@@ -859,30 +994,167 @@ const formatDate = (dateString: string): string => {
 };
 
 
-// 获取供应商列表
-const getSuppliers = async () => {
+// 获取供应商列表（支持传参和追加模式）
+const getSuppliers = async (searchKeyword?: string, append: boolean = false) => {
   try {
-    const result = await supplierAPI.getSuppliers();
-    supplierOptions.value = result.data.map((supplier: SupplierResponse) => ({
+    // 如果不是追加模式，重置分页状态
+    if (!append) {
+      supplierPagination.currentPage = 1;
+      supplierPagination.currentSearch = searchKeyword || '';
+    }
+    
+    // 根据是否搜索设置不同的参数
+    const params: any = {
+      page: supplierPagination.currentPage,
+      page_size: supplierPagination.pageSize,
+      sort_field: 'update_time', // 按更新时间排序，显示最近使用的
+      sort_asc: false // 降序排列
+    };
+    
+    // 如果有搜索关键字，添加search参数
+    if (searchKeyword && searchKeyword.trim()) {
+      params.search = searchKeyword.trim();
+      params.page_size = 50; // 搜索时显示50条
+    }
+    
+    const result = await supplierAPI.getSuppliers(params);
+    
+    // 更新分页信息
+    supplierPagination.totalPages = result.total_pages;
+    supplierPagination.hasMore = supplierPagination.currentPage < result.total_pages;
+    
+    // 根据模式处理数据：追加或替换
+    const newOptions = result.data.map((supplier: SupplierResponse) => ({
       value: supplier.id,
       label: supplier.supplier_name
     }));
+    
+    if (append) {
+      // 追加模式：合并数据，去重
+      const existingIds = new Set(supplierOptions.value.map(opt => opt.value));
+      const uniqueNewOptions = newOptions.filter(opt => !existingIds.has(opt.value));
+      supplierOptions.value = [...supplierOptions.value, ...uniqueNewOptions];
+    } else {
+      // 替换模式：直接赋值
+      supplierOptions.value = newOptions;
+    }
   } catch (error: any) {
     // 全局拦截器已经处理了401等错误，这里只记录错误不重复显示
     console.error('获取供应商列表失败:', error);
   }
 };
 
+// 远程搜索供应商（带防抖）
+const remoteSearchSuppliers = (query: string) => {
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer);
+  }
+  
+  // 如果查询为空，加载初始列表
+  if (!query || !query.trim()) {
+    getSuppliers();
+    return;
+  }
+  
+  // 设置加载状态
+  supplierLoading.value = true;
+  
+  // 防抖：300ms后执行搜索
+  searchTimer = setTimeout(async () => {
+    try {
+      await getSuppliers(query);
+    } finally {
+      supplierLoading.value = false;
+    }
+  }, 300);
+};
+
+// 触底加载更多供应商（优化：防止滚动跳动）
+const loadMoreSuppliers = async () => {
+  // 如果正在加载或没有更多数据，直接返回
+  if (supplierLoading.value || !supplierPagination.hasMore) {
+    return;
+  }
+  
+  // 获取当前滚动容器
+  const scrollContainer = document.querySelector('.el-select-dropdown__wrap') as HTMLElement;
+  if (!scrollContainer) return;
+  
+  // 保存加载前的滚动位置和内容高度
+  const scrollTopBefore = scrollContainer.scrollTop;
+  const scrollHeightBefore = scrollContainer.scrollHeight;
+  
+  try {
+    supplierLoading.value = true;
+    // 页码+1
+    supplierPagination.currentPage++;
+    // 使用当前搜索关键字，并以追加模式加载
+    await getSuppliers(supplierPagination.currentSearch, true);
+    
+    // 等待DOM更新完成
+    await nextTick();
+    
+    // 计算新增内容的高度
+    const scrollHeightAfter = scrollContainer.scrollHeight;
+    const heightDiff = scrollHeightAfter - scrollHeightBefore;
+    
+    // 恢复滚动位置（补偿新增高度）
+    if (heightDiff > 0) {
+      scrollContainer.scrollTop = scrollTopBefore + heightDiff;
+    }
+  } catch (error) {
+    console.error('加载更多供应商失败:', error);
+    // 加载失败，回退页码
+    supplierPagination.currentPage--;
+  } finally {
+    supplierLoading.value = false;
+  }
+};
+
+// 供应商下拉框滚动事件处理
+const handleSupplierScroll = (event: Event) => {
+  const target = event.target as HTMLElement;
+  const { scrollTop, scrollHeight, clientHeight } = target;
+  
+  // 触底加载：离底部还有15px时触发
+  if (scrollTop + clientHeight >= scrollHeight - 15) {
+    loadMoreSuppliers();
+  }
+};
+
+// 绑定供应商下拉框滚动监听
+const bindSupplierScrollListener = () => {
+  nextTick(() => {
+    // 获取 el-select 的下拉框 DOM
+    const selectDropdown = document.querySelector('.el-select-dropdown__wrap');
+    if (selectDropdown) {
+      selectDropdown.removeEventListener('scroll', handleSupplierScroll);
+      selectDropdown.addEventListener('scroll', handleSupplierScroll);
+    }
+  });
+};
+
 // 移除明细项
 const removeItem = async (index: number) => {
+  // 如果正在删除中，直接返回（按钮已禁用，这里做二次防护）
+  if (deleting.value) {
+    return;
+  }
+  
   const item = orderItems.value[index];
   console.log("判断当前模式是否为编辑模式",isEdit.value,orderId.value,item.item_id);
   if (isEdit.value && orderId.value && item.item_id) {
     // 编辑模式：调用后端API删除明细项
     console.log("删除明细项",orderId.value, item.item_id);
     try {
+      deleting.value = true;
       await inboundOrderAPI.deleteInboundOrderItem(orderId.value, item.item_id);
       orderItems.value.splice(index, 1);
+      
+      // 删除后调整页码，确保当前页有效
+      adjustPageAfterDelete();
+      
       ElMessage.success('明细项删除成功');
     } catch (error: any) {
       // 优先处理detail字段中的详细信息
@@ -913,10 +1185,31 @@ const removeItem = async (index: number) => {
         const errorMessage = error.response?.data?.message || error.message || '删除明细项失败';
         ElMessage.error(`删除明细项失败: ${errorMessage}`);
       }
+    } finally {
+      deleting.value = false;
     }
   } else {
     // 新增模式：直接在前端移除
     orderItems.value.splice(index, 1);
+    
+    // 删除后调整页码，确保当前页有效
+    adjustPageAfterDelete();
+  }
+};
+
+// 删除后调整页码
+const adjustPageAfterDelete = () => {
+  // 计算删除后的总页数
+  const totalPages = Math.ceil(orderItems.value.length / pageSize.value);
+  
+  // 如果当前页超出了总页数，调整到最后一页
+  if (currentPage.value > totalPages && totalPages > 0) {
+    currentPage.value = totalPages;
+  }
+  
+  // 如果删除后没有数据，重置到第1页
+  if (orderItems.value.length === 0) {
+    currentPage.value = 1;
   }
 };
 
@@ -969,6 +1262,9 @@ const openMaterialDrawer = async () => {
   await getMaterialList();
   await getMajors();
   await getEquipments();
+  
+  // 初始化器材列表滚动监听
+  initTableScroll();
 };
 
 // 关闭抽屉
@@ -1070,29 +1366,101 @@ const getEquipments = async () => {
 };
 
 // 获取器材列表
-const getMaterialList = async () => {
+const getMaterialList = async (page = 1, mode: 'replace' | 'append' | 'prepend' = 'replace') => {
+  if (loadingMoreMaterials.value && mode !== 'replace') return;
+  
+  // 生成当前请求的唯一 ID
+  const currentId = ++materialRequestId.value;
+  
   try {
+    loadingMoreMaterials.value = true;
+    const pageSize = 10;
+    
     const params = {
       search: materialFilter.search,
       major_id: materialFilter.major_id,
       equipment_id: materialFilter.equipment_id,
-      page: 1,
-      page_size: 5, // 默认显示前5个
+      page: page,
+      page_size: pageSize,
       sort_field: 'material_code',
       sort_asc: true
     };
     
     const result = await materialAPI.getMaterials(params);
-    materialList.value = result.data;
+    
+    // 如果在请求期间有新的 replace 请求发起，则丢弃当前过期请求的结果
+    if (currentId !== materialRequestId.value && mode === 'replace') {
+      console.log('丢弃过期的器材列表请求:', currentId);
+      return;
+    }
+
+    const newData = result.data;
+    const tableEl = materialTableRef.value?.$el;
+    const scrollWrapper = tableEl?.querySelector('.el-scrollbar__wrap') || tableEl?.querySelector('.el-table__body-wrapper');
+    
+    // 记录加载前的滚动高度，用于向上加载时的位置补偿
+    const oldScrollHeight = scrollWrapper?.scrollHeight || 0;
+    const oldScrollTop = scrollWrapper?.scrollTop || 0;
+
+    if (mode === 'append') {
+      // 向下追加：如果超过限制，删除顶部
+      if (materialList.value.length + newData.length > MAX_MATERIAL_ITEMS) {
+        // 智能修剪：检查高亮项是否在准备删除的 20 项内
+        const highlightedIndex = materialList.value.findIndex(item => item.id === highlightedMaterialId.value);
+        if (highlightedIndex === -1 || highlightedIndex >= 20) {
+          materialList.value.splice(0, 20);
+          materialFirstPage.value += 2;
+        }
+      }
+      materialList.value = [...materialList.value, ...newData];
+      materialLastPage.value = page;
+    } else if (mode === 'prepend') {
+      // 向上追加：如果超过限制，删除底部
+      if (materialList.value.length + newData.length > MAX_MATERIAL_ITEMS) {
+        // 智能修剪：检查高亮项是否在底部的 20 项内
+        const highlightedIndex = materialList.value.findIndex(item => item.id === highlightedMaterialId.value);
+        if (highlightedIndex === -1 || highlightedIndex < materialList.value.length - 20) {
+          materialList.value.splice(-20);
+          materialLastPage.value -= 2;
+        }
+      }
+      materialList.value = [...newData, ...materialList.value];
+      materialFirstPage.value = page;
+      
+      // 关键：向上加载后需要补偿滚动位置，防止跳动
+      nextTick(() => {
+        if (scrollWrapper) {
+          const newScrollHeight = scrollWrapper.scrollHeight;
+          scrollWrapper.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+        }
+      });
+    } else {
+      // 替换（搜索或定位）
+      materialList.value = newData;
+      materialFirstPage.value = page;
+      materialLastPage.value = page;
+    }
+    
+    // 如果是最后一页，更新 hasMore
+    if (mode !== 'prepend') {
+      materialHasMore.value = newData.length === pageSize;
+    }
+    
   } catch (error: any) {
-    // 显示具体的错误原因
     const errorMessage = error.response?.data?.message || error.message || '获取器材列表失败';
     ElMessage.error(`获取器材列表失败: ${errorMessage}`);
+  } finally {
+    loadingMoreMaterials.value = false;
   }
 };
 
 // 筛选条件变化处理
 const handleMaterialFilterChange = async () => {
+  // 如果输入了搜索内容，自动清空定位器材输入框
+  if (materialFilter.search) {
+    materialLocateCode.value = '';
+  }
+
   // 只有当专业发生变化时才重新获取装备列表并清空装备筛选条件
   // 避免装备选择时也被清空
   const currentMajorId = materialFilter.major_id;
@@ -1104,8 +1472,138 @@ const handleMaterialFilterChange = async () => {
     await getEquipments();
   }
   
+  // 清除高亮
+  highlightedMaterialId.value = null;
   // 总是重新获取器材列表
   getMaterialList();
+};
+
+// 器材定位输入变化处理
+const handleLocateInputChange = (value: string) => {
+  if (value) {
+    // 如果输入了定位码，自动清空器材搜索框
+    materialFilter.search = '';
+  }
+};
+
+// 器材定位处理
+const handleMaterialLocate = async () => {
+  try {
+    locating.value = true;
+    // 强制使用与 getMaterialList 一致的 pageSize: 10
+    const pageSize = 10;
+    
+    // 调用定位接口
+    const result = await materialAPI.locate({
+      material_code: materialLocateCode.value,
+      page_size: pageSize
+    });
+    
+    if (result.target_page !== null) {
+      // 标记开始定位滚动，锁定滚动监听
+      isLocatingScroll.value = true;
+      
+      // 重新获取器材列表（清除筛选条件，显示全部器材）
+      materialFilter.major_id = undefined;
+      materialFilter.equipment_id = undefined;
+      materialFilter.search = '';
+      
+      // 使用定位返回的页码进行加载
+      await getMaterialList(result.target_page);
+      
+      // 优化：如果定位的器材在页面后半部分，则多加载一页支撑滚动
+      if (result.position !== null) {
+        const positionInPage = ((result.position - 1) % 10) + 1;
+        if (positionInPage > 5 && materialHasMore.value) {
+          await getMaterialList(result.target_page + 1, 'append');
+        }
+      }
+      
+      if (result.found && result.material) {
+        await nextTick();
+        
+        const targetMaterial = result.material;
+        scrollToTargetMaterial(targetMaterial.id);
+        
+        // 设置高亮
+        highlightedMaterialId.value = targetMaterial.id;
+        ElMessage.success(`已定位到: ${targetMaterial.material_name} (位置: ${result.position})`);
+        
+        // 等待平滑滚动完成后解除锁定（通常 800ms 足够）
+        setTimeout(() => {
+          isLocatingScroll.value = false;
+        }, 800);
+
+        // 20秒后移除高亮
+        setTimeout(() => {
+          if (highlightedMaterialId.value === targetMaterial.id) {
+            highlightedMaterialId.value = null;
+          }
+        }, 20000);
+      } else {
+        isLocatingScroll.value = false;
+        ElMessage.info('已返回第1页');
+      }
+    } else {
+      ElMessage.warning(`未找到器材编码: ${materialLocateCode.value}`);
+    }
+  } catch (error: any) {
+    isLocatingScroll.value = false;
+    const errorMessage = error.response?.data?.detail || error.message || '定位失败';
+    ElMessage.error(`器材定位失败: ${errorMessage}`);
+  } finally {
+    locating.value = false;
+  }
+};
+
+// 滚动到目标器材
+const scrollToTargetMaterial = (materialId: number) => {
+  if (!materialTableRef.value) return;
+  
+  // 找到目标器材在当前列表中的索引
+  const index = materialList.value.findIndex(item => item.id === materialId);
+  if (index === -1) return;
+  
+  // 获取表格的DOM元素
+  const tableEl = materialTableRef.value.$el;
+  const tableBody = tableEl.querySelector('.el-table__body-wrapper');
+  
+  if (tableBody) {
+    // 获取所有行元素
+    const rows = tableBody.querySelectorAll('.el-table__row');
+    if (rows[index]) {
+      // 滚动到目标行
+      rows[index].scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  }
+};
+
+// 清除定位
+const handleMaterialLocateClear = async () => {
+  highlightedMaterialId.value = null;
+  materialLocateCode.value = '';
+  // 等待数据加载完成
+  await getMaterialList(1);
+  
+  // 强制滚动到最顶部
+  nextTick(() => {
+    if (materialTableRef.value) {
+      const tableEl = materialTableRef.value.$el;
+      const scrollWrapper = tableEl.querySelector('.el-scrollbar__wrap') || 
+                           tableEl.querySelector('.el-table__body-wrapper');
+      if (scrollWrapper) {
+        scrollWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  });
+};
+
+// 获取表格行类名（用于高亮）
+const getRowClassName = ({ row }: { row: MaterialResponse }) => {
+  return row.id === highlightedMaterialId.value ? 'highlighted-row' : '';
 };
 
 // 处理货位筛选条件变化
@@ -1400,10 +1898,13 @@ const handleAddMaterial = async () => {
     if (isEdit.value && orderId.value && originalItem.item_id) {
       try {
         await inboundOrderAPI.updateInboundOrderItem(orderId.value, originalItem.item_id, {
+          material_id: newItem.material_id,
           quantity: newItem.quantity,
+          unit: newItem.unit,
           unit_price: newItem.unit_price,
           batch_number: newItem.batch_number,
-          bin_id: newItem.bin_id
+          bin_id: newItem.bin_id,
+          production_date: newItem.production_date
         });
         ElMessage.success(`已更新器材: ${selectedMaterialInfo.material_name}`);
       } catch (error: any) {
@@ -1452,9 +1953,8 @@ const handleAddMaterial = async () => {
     isEditing.value = false;
     editingIndex.value = null;
     
-    // 编辑模式：清空选中信息并关闭抽屉
+    // 编辑模式：清空选中信息，保持抽屉打开
     resetSelectedMaterialInfo();
-    materialDrawerVisible.value = false;
   } else {
     // 添加模式：检查是否已存在相同批次号的器材
     const existingItemIndex = orderItems.value.findIndex(item => 
@@ -1512,13 +2012,9 @@ const handleAddMaterial = async () => {
         ElMessage.success(`发现相同批次器材，已自动合并`);
       }
       
-      // 合并模式：清空选中信息，但保持抽屉打开（新增模式）或关闭抽屉（编辑模式）
+      // 合并模式：清空选中信息，保持抽屉打开
       resetSelectedMaterialInfo();
-      if (isEdit.value && orderId.value) {
-        // 编辑模式：关闭抽屉
-        materialDrawerVisible.value = false;
-      }
-      // 新增模式：保持抽屉打开，用户可以继续添加其他器材
+      // 无论新增还是编辑模式，都保持抽屉打开，用户可以继续添加其他器材
     } else {
       // 不存在相同批次号的器材，正常添加
       if (isEdit.value && orderId.value) {
@@ -1539,9 +2035,8 @@ const handleAddMaterial = async () => {
           orderItems.value.push(newItem);
           ElMessage.success(`已添加器材: ${selectedMaterialInfo.material_name}`);
           
-          // 编辑模式：清空选中信息并关闭抽屉
+          // 编辑模式：清空选中信息，保持抽屉打开
           resetSelectedMaterialInfo();
-          materialDrawerVisible.value = false;
         } catch (error: any) {
           // 优先处理detail字段中的详细信息
           if (error.response?.data?.detail) {
@@ -2277,10 +2772,74 @@ watch(() => orderItems.value, () => {
   }
 }, { deep: true });
 
-onMounted(() => {
-  // watch 监听器已经处理了初始化逻辑（immediate: true）
-  // 这里不需要再次调用 initData()
+// 加载更多器材
+const loadMoreMaterials = () => {
+  if (materialHasMore.value && !loadingMoreMaterials.value) {
+    getMaterialList(materialLastPage.value + 1, 'append');
+  }
+};
+
+// 加载前一页器材
+const loadPreviousMaterials = () => {
+  if (materialFirstPage.value > 1 && !loadingMoreMaterials.value) {
+    getMaterialList(materialFirstPage.value - 1, 'prepend');
+  }
+};
+
+// 初始化表格滚动监听（用于无限滚动）
+const initTableScroll = () => {
+  // 使用递归重试确保 DOM 已挂载
+  const tryInit = (count = 0) => {
+    if (count > 10) return; // 最多重试 10 次
+    
+    nextTick(() => {
+      if (!materialTableRef.value) {
+        setTimeout(() => tryInit(count + 1), 200);
+        return;
+      }
+      
+      const tableEl = materialTableRef.value.$el;
+      // Element Plus 3.x 滚动容器可能是 .el-scrollbar__wrap 或 .el-table__body-wrapper
+      const scrollWrapper = tableEl.querySelector('.el-scrollbar__wrap') || 
+                           tableEl.querySelector('.el-table__body-wrapper');
+      
+      if (scrollWrapper) {
+        scrollWrapper.removeEventListener('scroll', handleTableScroll);
+        scrollWrapper.addEventListener('scroll', handleTableScroll);
+        console.log('器材列表滚动监听器绑定成功');
+      } else {
+        setTimeout(() => tryInit(count + 1), 200);
+      }
+    });
+  };
+  tryInit();
+};
+
+// 监听货位/器材列表切换，确保切换回来时能重新绑定
+watch(() => showBinList.value, (newVal) => {
+  if (!newVal && materialDrawerVisible.value) {
+    initTableScroll();
+  }
 });
+
+// 滚动事件处理函数
+const handleTableScroll = (event: any) => {
+  // 如果正在程序化滚动定位，屏蔽滚动加载逻辑，防止“落地跳页”
+  if (isLocatingScroll.value) return;
+
+  const { scrollTop, scrollHeight, clientHeight } = event.target;
+  
+  // 触底加载下一页
+  if (scrollTop + clientHeight >= scrollHeight - 15) {
+    loadMoreMaterials();
+  }
+  
+  // 触顶加载前一页
+  if (scrollTop <= 5) {
+    loadPreviousMaterials();
+  }
+};
+
 </script>
 
 <style scoped lang="scss">
@@ -2319,7 +2878,8 @@ onMounted(() => {
 /* 器材选择抽屉样式 */
 .material-select-layout {
   display: flex;
-  height: calc(100vh - 300px); /* 进一步减少高度，为底部按钮留出更多空间 */
+  flex: 1; /* 自动填充剩余空间 */
+  min-height: 0; /* 允许 flex 项目缩小，防止溢出 */
   gap: 20px;
   margin-bottom: 10px; /* 减少底部间距 */
 }
@@ -2391,7 +2951,7 @@ onMounted(() => {
 .material-drawer-footer {
   margin-top: 0; /* 移除自动边距 */
   text-align: center;
-  padding: 15px 0;
+  padding: 10px 0; /* 减少上下边距 */
   border-top: 1px solid #e9ecef;
   background: #fff;
   position: sticky;
@@ -2405,7 +2965,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 20px;
+  padding: 20px 20px 0 20px; /* 移除底部内边距，因为 footer 已经有边距了 */
 }
 
 /* 调整抽屉整体布局 */
@@ -2508,5 +3068,36 @@ onMounted(() => {
 
 .unit-option.no-match:hover {
   background-color: transparent;
+}
+
+/* 器材定位高亮样式 - 增强视觉效果并覆盖斑马纹 */
+:deep(.el-table__row.highlighted-row) {
+  background: linear-gradient(90deg, #ffd700 0%, #fff9e6 50%, #ffffff 100%) !important;
+  border-left: 4px solid #ff6b00 !important;
+  box-shadow: 0 0 15px rgba(255, 107, 0, 0.3) !important;
+  animation: highlight-pulse 1s ease-in-out infinite;
+  position: relative;
+  z-index: 10 !important;
+}
+
+/* 确保高亮行的单元格背景也被覆盖 */
+:deep(.el-table__row.highlighted-row > td) {
+  background: transparent !important;
+  font-weight: 600 !important;
+  color: #333 !important;
+}
+
+/* 覆盖斑马纹样式 */
+:deep(.el-table--striped .el-table__row.highlighted-row.el-table__row--striped > td) {
+  background: transparent !important;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% { 
+    background: linear-gradient(90deg, #ffd700 0%, #fff9e6 50%, #ffffff 100%);
+  }
+  50% { 
+    background: linear-gradient(90deg, #ffed4e 0%, #fffbf0 50%, #ffffff 100%);
+  }
 }
 </style>
