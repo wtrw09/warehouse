@@ -43,11 +43,15 @@
             <el-form-item label="客户" prop="customer_id">
               <el-select
                 v-model="orderForm.customer_id"
-                placeholder="选择客户"
+                placeholder="请选择或搜索客户"
                 filterable
+                remote
+                :remote-method="remoteSearchCustomers"
+                :loading="customerLoading"
                 style="width: 100%"
                 :disabled="props.readonly"
                 @change="handleCustomerChange"
+                @visible-change="bindCustomerScrollListener"
               >
                 <el-option
                   v-for="customer in customerOptions"
@@ -116,13 +120,22 @@
             >
               添加器材
             </el-button>
+            <el-button 
+              v-if="!props.readonly && isEdit"
+              type="warning" 
+              @click="handleForceUpdate"
+              :icon="Refresh"
+              :loading="updating"
+            >
+              强制更新
+            </el-button>
           </div>
         </div>
       </template>
 
       <div class="base-table base-table--auto-height">
         <el-table
-          :data="orderItems"
+          :data="paginatedItems"
           stripe
           border
           :empty-text="'暂无出库明细数据'"
@@ -134,32 +147,52 @@
           width="60" 
           align="center" 
           fixed="left"
-        />
+        >
+          <template #default="{ $index }">
+            <span v-memo="[getRealIndex($index)]">{{ getRealIndex($index) + 1 }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="material_code" 
           label="器材编码" 
           width="110" 
           align="center" 
           fixed="left"
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.material_code]">{{ row.material_code }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="material_name" 
           label="器材名称" 
           min-width="100" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.material_name]">{{ row.material_name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="material_specification" 
           label="器材规格" 
           width="100" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.material_specification]">{{ row.material_specification }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="batch_number" 
           label="批次编码" 
           width="120" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.batch_number]">{{ row.batch_number }}</span>
+          </template>
+        </el-table-column>
         <!-- 数量列 -->
         <el-table-column 
           prop="quantity" 
@@ -174,8 +207,8 @@
               :precision="0"
               size="small"
               controls-position="right"
-              @change="handleQuantityChange($index)"
-              :class="{ 'insufficient-stock': row.batch_id && !checkStockSufficient(row.batch_id, row.quantity, $index) }"
+              @change="handleQuantityChange(getRealIndex($index))"
+              :class="{ 'insufficient-stock': row.batch_id && !checkStockSufficient(row.batch_id, row.quantity, getRealIndex($index)) }"
               style="width: 100%"
               :disabled="props.readonly"
             />
@@ -186,7 +219,11 @@
           label="单位" 
           width="60" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.unit]">{{ row.unit }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="unit_price" 
           label="单价" 
@@ -194,7 +231,9 @@
           align="center" 
         >
           <template #default="{ row }">
-            {{ row.unit_price ? `¥${row.unit_price.toFixed(2)}` : '-' }}
+            <span v-memo="[row.detail_id, row.unit_price]">
+              {{ row.unit_price ? `¥${row.unit_price.toFixed(2)}` : '-' }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column 
@@ -202,7 +241,11 @@
           label="货位" 
           width="100" 
           align="center" 
-        />
+        >
+          <template #default="{ row }">
+            <span v-memo="[row.detail_id, row.bin_name]">{{ row.bin_name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column 
           prop="production_date" 
           label="生产日期" 
@@ -210,7 +253,9 @@
           align="center" 
         >
           <template #default="{ row }">
-            {{ formatDate(row.production_date) }}
+            <span v-memo="[row.detail_id, row.production_date]">
+              {{ formatDate(row.production_date) }}
+            </span>
           </template>
         </el-table-column>
         
@@ -228,14 +273,29 @@
             <el-button 
               type="danger" 
               size="small" 
-              @click="removeItem($index)"
+              @click="removeItem(getRealIndex($index))"
               :icon="Delete"
+              :loading="deleting"
+              :disabled="deleting"
             >
               删除
             </el-button>
           </template>
         </el-table-column>
         </el-table>
+      </div>
+
+      <!-- 分页器 -->
+      <div class="base-pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="orderItems.length"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="currentPage = 1"
+          background
+        />
       </div>
     </el-card>
 
@@ -250,21 +310,47 @@
       v-model="materialDrawerVisible"
       title="选择器材"
       direction="ttb"
-      size="60%"
+      size="80%"
       :before-close="handleDrawerClose"
     >
       <div class="material-drawer-content">
-        <!-- 筛选器 -->
+        <!-- 筛选器和定位器材 -->
         <div class="drawer-filter">
           <el-row :gutter="10">
-            <el-col :span="24">
-              <el-input
-                v-model="materialFilter.keyword"
-                placeholder="输入器材编码、名称、规格搜索"
-                clearable
-                @clear="handleMaterialFilterChange"
-                @input="handleMaterialFilterChange"
-              />
+            <el-col :span="12">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label style="min-width: 80px; font-weight: 500; color: #606266;">搜索器材:</label>
+                <el-input
+                  v-model="materialFilter.keyword"
+                  placeholder="输入器材编码、名称、规格搜索"
+                  clearable
+                  @clear="handleMaterialFilterChange"
+                  @input="handleMaterialFilterChange"
+                  style="flex: 1;"
+                />
+              </div>
+            </el-col>
+            <el-col :span="12">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label style="min-width: 80px; font-weight: 500; color: #606266;">定位器材:</label>
+                <el-input
+                  v-model="materialLocateCode"
+                  placeholder="请输入器材批次编码"
+                  clearable
+                  @input="handleLocateInputChange"
+                  @keyup.enter="handleMaterialLocate"
+                  @clear="handleMaterialLocateClear"
+                  style="flex: 1;"
+                >
+                  <template #append>
+                    <el-button 
+                      :icon="Location" 
+                      @click="handleMaterialLocate"
+                      :loading="locating"
+                    />
+                  </template>
+                </el-input>
+              </div>
             </el-col>
           </el-row>
         </div>
@@ -272,13 +358,16 @@
         <!-- 器材列表 -->
         <div class="drawer-table">
           <el-table
+            ref="materialTableRef"
             :data="materialList"
+            row-key="detail_id"
             stripe
             border
-            height="250"
+            height="100%"
             :empty-text="'暂无器材数据'"
             class="base-table"
             @filter-change="handleTableFilterChange"
+            :row-class-name="getRowClassName"
           >
             <el-table-column 
               prop="material_code" 
@@ -402,7 +491,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 // 定义组件属性
@@ -419,7 +508,9 @@ import {
   List, 
   Plus, 
   Delete, 
-  ShoppingCart
+  ShoppingCart,
+  Refresh,
+  Location
 } from '@element-plus/icons-vue';
 import { outboundOrderAPI } from '@/services/material/outbound';
 import { customerAPI } from '@/services/base/customer';
@@ -435,6 +526,8 @@ import { saveDraft, loadDraft, clearDraft, hasDraft, getDraftTimestamp, formatDr
 const isEdit = ref(false);
 const orderId = ref<number | null>(null);
 const saving = ref(false);
+const updating = ref(false);
+const deleting = ref(false); // 删除状态锁
 const materialDrawerVisible = ref(false);
 
 // 草稿管理相关常量
@@ -514,7 +607,7 @@ const loadOrderDetail = async () => {
     // 这样在页面加载时，数量输入框就不会显示红色
     stockManagement.value.clear();
     items.forEach(item => {
-      stockManagement.value.set(item.item_id, {
+      stockManagement.value.set(item.batch_id, {
         batch_id: item.batch_id,
         // 在编辑模式下，初始可用库存等于当前出库数量（假设库存充足）
         // 后续打开器材选择抽屉时会重新计算准确的可用库存
@@ -523,7 +616,7 @@ const loadOrderDetail = async () => {
       });
     });
     
-    // 在编辑模式下，加载器材列表后更新库存管理变量为准确值
+    // 在编辑模式下，立即加载器材列表并更新库存管理变量为准确值
     if (isEdit.value) {
       await getMaterialList();
       updateStockManagementForEdit();
@@ -561,6 +654,18 @@ const originalOrderForm = reactive({
 
 // 筛选选项
 const customerOptions = ref<{ value: number; label: string }[]>([]);
+// 客户加载状态
+const customerLoading = ref(false);
+// 搜索防抖定时器
+let searchTimer: NodeJS.Timeout | null = null;
+// 客户分页状态
+const customerPagination = reactive({
+  currentPage: 1,
+  pageSize: 50,
+  totalPages: 0,
+  hasMore: true,
+  currentSearch: '' // 当前搜索关键字
+});
 const majorOptions = ref<{ value: number; label: string }[]>([]);
 const equipmentOptions = ref<{ value: number; label: string }[]>([]);
 
@@ -573,6 +678,19 @@ const materialFilter = reactive({
 
 // 器材列表
 const materialList = ref<(InventoryDetailResponse & { addQuantity: number })[]>([]);
+const materialFirstPage = ref(1); // 记录当前列表的第一页页码
+const materialLastPage = ref(1);  // 记录当前列表的最后一页页码
+const materialHasMore = ref(true);
+const loadingMoreMaterials = ref(false);
+const materialRequestId = ref(0); // 请求 ID，用于防止异步竞态冲突
+const MAX_MATERIAL_ITEMS = 100; // 超过100项后修剪前端数据
+const highlightedMaterialId = ref<number | null>(null); // 高亮的器材ID
+const materialTableRef = ref(); // 器材表格ref
+
+// 定位相关变量
+const materialLocateCode = ref(''); // 定位用的批次编号
+const locating = ref(false); // 定位加载状态
+const isLocatingScroll = ref(false); // 标记是否正在执行定位滚动锁定
 
 // 筛选器变量
 const majorFilters = ref<{ text: string; value: string }[]>([]);
@@ -585,6 +703,22 @@ interface StockInfo {
   original_quantity: number; // 原始库存数量
 }
 const stockManagement = ref<Map<number, StockInfo>>(new Map());
+
+// 出库明细分页相关变量
+const currentPage = ref(1);
+const pageSize = ref(20);
+
+// 计算属性：分页后的出库明细数据
+const paginatedItems = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return orderItems.value.slice(start, end);
+});
+
+// 计算当前页的真实索引（用于操作原始数组）
+const getRealIndex = (pageIndex: number): number => {
+  return (currentPage.value - 1) * pageSize.value + pageIndex;
+};
 
 // 生成出库单号
 const generateOrderNumber = async () => {
@@ -755,36 +889,17 @@ const initStockManagement = () => {
   });
 };
 
-// 更新库存管理变量（编辑模式）
+// 更新库存管理变量(编辑模式)
 const updateStockManagementForEdit = () => {
   stockManagement.value.clear();
   
-  // 首先为出库明细中的所有器材初始化库存信息
-  orderItems.value.forEach(item => {
-    if (item.batch_id !== undefined) {
-      // 初始可用库存等于当前出库数量（假设库存充足）
-      stockManagement.value.set(item.batch_id, {
-        batch_id: item.batch_id,
-        available_quantity: item.quantity,
-        original_quantity: item.quantity // 添加原始库存
-      });
-    }
-  });
-  
-  // 然后为器材列表中的器材更新准确的库存信息
+  // 为器材列表中的器材初始化库存信息
   materialList.value.forEach(material => {
     if (material.batch_id !== undefined) {
-      // 获取当前出库单中该器材的数量
-      const orderItemQuantity = orderItems.value
-        .filter(item => item.batch_id === material.batch_id)
-        .reduce((sum, item) => sum + (item.quantity || 0), 0);
-      
-      // 可用库存 = 真实库存 + 当前出库单中的数量
-      const availableQuantity = material.quantity + orderItemQuantity;
-      
+      // 编辑模式下由于实时写入数据库，直接使用真实库存
       stockManagement.value.set(material.batch_id!, {
         batch_id: material.batch_id!,
-        available_quantity: availableQuantity,
+        available_quantity: material.quantity, // 真实可用库存
         original_quantity: material.quantity // 添加原始库存
       });
     }
@@ -915,19 +1030,146 @@ const debounce = <T extends (...args: any[]) => any>(func: T, delay: number): T 
 // 防抖保存草稿（500ms）
 const saveDraftDebounced = debounce(saveDraftData, 500);
 
-// 获取客户列表
-const getCustomers = async () => {
+// 获取客户列表（支持传参和追加模式）
+const getCustomers = async (searchKeyword?: string, append: boolean = false) => {
   try {
-    const result = await customerAPI.getCustomers();
-    customerOptions.value = result.data.map((customer: CustomerResponse) => ({
+    // 如果不是追加模式，重置分页状态
+    if (!append) {
+      customerPagination.currentPage = 1;
+      customerPagination.currentSearch = searchKeyword || '';
+    }
+    
+    // 根据是否搜索设置不同的参数
+    const params: any = {
+      page: customerPagination.currentPage,
+      page_size: customerPagination.pageSize,
+      sort_field: 'update_time', // 按更新时间排序，显示最近使用的
+      sort_asc: false // 降序排列
+    };
+    
+    // 如果有搜索关键字，添加search参数
+    if (searchKeyword && searchKeyword.trim()) {
+      params.search = searchKeyword.trim();
+      params.page_size = 50; // 搜索时显示50条
+    }
+    
+    const result = await customerAPI.getCustomers(params);
+    
+    // 更新分页信息
+    customerPagination.totalPages = result.total_pages;
+    customerPagination.hasMore = customerPagination.currentPage < result.total_pages;
+    
+    // 根据模式处理数据：追加或替换
+    const newOptions = result.data.map((customer: CustomerResponse) => ({
       value: customer.id,
       label: customer.customer_name
     }));
+    
+    if (append) {
+      // 追加模式：合并数据，去重
+      const existingIds = new Set(customerOptions.value.map(opt => opt.value));
+      const uniqueNewOptions = newOptions.filter(opt => !existingIds.has(opt.value));
+      customerOptions.value = [...customerOptions.value, ...uniqueNewOptions];
+    } else {
+      // 替换模式：直接赋值
+      customerOptions.value = newOptions;
+    }
   } catch (error: any) {
     // 显示具体的错误原因
     const errorMessage = error.response?.data?.message || error.message || '获取客户列表失败';
-    ElMessage.error(`获取客户列表失败: ${errorMessage}`);
+    console.error(`获取客户列表失败: ${errorMessage}`);
   }
+};
+
+// 远程搜索客户（带防抖）
+const remoteSearchCustomers = (query: string) => {
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer);
+  }
+  
+  // 如果查询为空，加载初始列表
+  if (!query || !query.trim()) {
+    getCustomers();
+    return;
+  }
+  
+  // 设置加载状态
+  customerLoading.value = true;
+  
+  // 防抖：300ms后执行搜索
+  searchTimer = setTimeout(async () => {
+    try {
+      await getCustomers(query);
+    } finally {
+      customerLoading.value = false;
+    }
+  }, 300);
+};
+
+// 触底加载更多客户（优化：防止滚动跳动）
+const loadMoreCustomers = async () => {
+  // 如果正在加载或没有更多数据，直接返回
+  if (customerLoading.value || !customerPagination.hasMore) {
+    return;
+  }
+  
+  // 获取当前滚动容器
+  const scrollContainer = document.querySelector('.el-select-dropdown__wrap') as HTMLElement;
+  if (!scrollContainer) return;
+  
+  // 保存加载前的滚动位置和内容高度
+  const scrollTopBefore = scrollContainer.scrollTop;
+  const scrollHeightBefore = scrollContainer.scrollHeight;
+  
+  try {
+    customerLoading.value = true;
+    // 页码+1
+    customerPagination.currentPage++;
+    // 使用当前搜索关键字，并以追加模式加载
+    await getCustomers(customerPagination.currentSearch, true);
+    
+    // 等待DOM更新完成
+    await nextTick();
+    
+    // 计算新增内容的高度
+    const scrollHeightAfter = scrollContainer.scrollHeight;
+    const heightDiff = scrollHeightAfter - scrollHeightBefore;
+    
+    // 恢复滚动位置（补偿新增高度）
+    if (heightDiff > 0) {
+      scrollContainer.scrollTop = scrollTopBefore + heightDiff;
+    }
+  } catch (error) {
+    console.error('加载更多客户失败:', error);
+    // 加载失败，回退页码
+    customerPagination.currentPage--;
+  } finally {
+    customerLoading.value = false;
+  }
+};
+
+// 客户下拉框滚动事件处理
+const handleCustomerScroll = (event: Event) => {
+  const target = event.target as HTMLElement;
+  const { scrollTop, scrollHeight, clientHeight } = target;
+  
+  // 触底加载：离底部还有15px时触发
+  if (scrollTop + clientHeight >= scrollHeight - 15) {
+    loadMoreCustomers();
+  }
+};
+
+// 绑定客户下拉框滚动监听
+const bindCustomerScrollListener = () => {
+  nextTick(() => {
+    // 获取 el-select 的下拉框 DOM
+    const selectDropdown = document.querySelector('.el-select-dropdown__wrap');
+    if (selectDropdown) {
+      selectDropdown.removeEventListener('scroll', handleCustomerScroll);
+      selectDropdown.addEventListener('scroll', handleCustomerScroll);
+    }
+  });
 };
 
 // 获取专业列表
@@ -998,14 +1240,19 @@ const getEquipmentsByMajor = async (majorId: number) => {
 };
 
 // 获取器材列表
-const getMaterialList = async () => {
+const getMaterialList = async (page = 1, mode: 'replace' | 'append' | 'prepend' = 'replace') => {
+  if (loadingMoreMaterials.value && mode !== 'replace') return;
+  
+  // 生成当前请求的唯一 ID
+  const currentId = ++materialRequestId.value;
+  
   try {
-    // 根据搜索框内容动态设置page_size：搜索框为空时显示5项，有输入时显示20项
-    const pageSize = materialFilter.keyword ? 20 : 5;
+    loadingMoreMaterials.value = true;
+    const pageSize = 10;
     
     // 构建查询参数
     const params = {
-      page: 1,
+      page: page,
       page_size: pageSize,
       keyword: materialFilter.keyword,
       major_id: Array.isArray(materialFilter.major_id) ? materialFilter.major_id : 
@@ -1016,28 +1263,106 @@ const getMaterialList = async () => {
     };
     
     const response = await inventoryDetailAPI.getInventoryDetails(params);
-    // 为每个器材添加数量输入框，根据实际库存设置合理的默认值
-    materialList.value = response.data.map(item => ({
-      ...item,
-      addQuantity: item.quantity > 0 ? 1 : 0  // 有库存时默认1，无库存时默认0
-    }));
     
-    // 初始化库存管理变量
-    if (isEdit.value) {
-      updateStockManagementForEdit();
+    // 如果在请求期间有新的 replace 请求发起，则丢弃当前过期请求的结果
+    if (currentId !== materialRequestId.value && mode === 'replace') {
+      return;
+    }
+
+    const newData = response.data.map(item => ({
+      ...item,
+      addQuantity: item.quantity > 0 ? 1 : 0
+    }));
+
+    const tableEl = materialTableRef.value?.$el;
+    const scrollWrapper = tableEl?.querySelector('.el-scrollbar__wrap') || tableEl?.querySelector('.el-table__body-wrapper');
+    
+    // 记录加载前的滚动高度，用于向上加载时的位置补偿
+    const oldScrollHeight = scrollWrapper?.scrollHeight || 0;
+    const oldScrollTop = scrollWrapper?.scrollTop || 0;
+
+    if (mode === 'append') {
+      // 向下追加：如果超过限制，删除顶部
+      if (materialList.value.length + newData.length > MAX_MATERIAL_ITEMS) {
+        // 智能修剪：检查高亮项是否在准备删除的 20 项内
+        const highlightedIndex = materialList.value.findIndex(item => (item.detail_id || item.batch_id) === highlightedMaterialId.value);
+        if (highlightedIndex === -1 || highlightedIndex >= 20) {
+          materialList.value.splice(0, 20);
+          materialFirstPage.value += 2;
+        }
+      }
+      materialList.value = [...materialList.value, ...newData];
+      materialLastPage.value = page;
+    } else if (mode === 'prepend') {
+      // 向上追加：如果超过限制，删除底部
+      if (materialList.value.length + newData.length > MAX_MATERIAL_ITEMS) {
+        // 智能修剪：检查高亮项是否在底部的 20 项内
+        const highlightedIndex = materialList.value.findIndex(item => (item.detail_id || item.batch_id) === highlightedMaterialId.value);
+        if (highlightedIndex === -1 || highlightedIndex < materialList.value.length - 20) {
+          materialList.value.splice(-20);
+          materialLastPage.value -= 2;
+        }
+      }
+      materialList.value = [...newData, ...materialList.value];
+      materialFirstPage.value = page;
+      
+      // 向上加载后需要补偿滚动位置
+      nextTick(() => {
+        if (scrollWrapper) {
+          const newScrollHeight = scrollWrapper.scrollHeight;
+          scrollWrapper.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+        }
+      });
     } else {
-      initStockManagement();
+      // 替换
+      materialList.value = newData;
+      materialFirstPage.value = page;
+      materialLastPage.value = page;
+    }
+    
+    // 如果是最后一页，更新 hasMore
+    if (mode !== 'prepend') {
+      materialHasMore.value = newData.length === pageSize;
+    }
+    
+    // 增量更新库存管理变量
+    if (mode === 'replace') {
+      if (isEdit.value) {
+        updateStockManagementForEdit();
+      } else {
+        initStockManagement();
+      }
+    } else {
+      // 追加模式下增量添加库存信息
+      newData.forEach(material => {
+        if (material.batch_id !== undefined && !stockManagement.value.has(material.batch_id)) {
+          // 编辑模式和新建模式都直接使用真实库存
+          // 编辑模式下由于实时写入数据库，后端返回的就是真实可用库存
+          stockManagement.value.set(material.batch_id, {
+            batch_id: material.batch_id,
+            available_quantity: material.quantity,
+            original_quantity: material.quantity
+          });
+        }
+      });
     }
   } catch (error: any) {
-    // 显示具体的错误原因
     const errorMessage = error.response?.data?.message || error.message || '获取器材列表失败';
     ElMessage.error(`获取器材列表失败: ${errorMessage}`);
+  } finally {
+    loadingMoreMaterials.value = false;
   }
 };
 
 // 处理器材筛选变化（关键词搜索）
 let searchTimeout: NodeJS.Timeout | null = null;
 const handleMaterialFilterChange = async () => {
+  // 如果输入了搜索内容，自动清空定位器材输入框
+  if (materialFilter.keyword) {
+    materialLocateCode.value = '';
+    highlightedMaterialId.value = null;
+  }
+  
   // 防抖处理，避免频繁请求
   if (searchTimeout) {
     clearTimeout(searchTimeout);
@@ -1143,6 +1468,194 @@ const filterEquipmentMethod = (values: string[], row: any) => {
   return values.includes(row.equipment_name);
 };
 
+// 加载更多器材
+const loadMoreMaterials = () => {
+  if (materialHasMore.value && !loadingMoreMaterials.value) {
+    getMaterialList(materialLastPage.value + 1, 'append');
+  }
+};
+
+// 加载前一页器材
+const loadPreviousMaterials = () => {
+  if (materialFirstPage.value > 1 && !loadingMoreMaterials.value) {
+    getMaterialList(materialFirstPage.value - 1, 'prepend');
+  }
+};
+
+// 滚动事件处理函数
+const handleTableScroll = (event: any) => {
+  const { scrollTop, scrollHeight, clientHeight } = event.target;
+  
+  // 触底加载下一页
+  if (scrollTop + clientHeight >= scrollHeight - 15) {
+    loadMoreMaterials();
+  }
+  
+  // 触顶加载前一页
+  if (scrollTop <= 5) {
+    loadPreviousMaterials();
+  }
+};
+
+// 初始化表格滚动监听（用于无限滚动）
+const initTableScroll = () => {
+  // 使用递归重试确保 DOM 已挂载
+  const tryInit = (count = 0) => {
+    if (count > 10) return; // 最多重试 10 次
+    
+    nextTick(() => {
+      if (!materialTableRef.value) {
+        setTimeout(() => tryInit(count + 1), 200);
+        return;
+      }
+      
+      const tableEl = materialTableRef.value.$el;
+      // Element Plus 3.x 滚动容器可能是 .el-scrollbar__wrap 或 .el-table__body-wrapper
+      const scrollWrapper = tableEl.querySelector('.el-scrollbar__wrap') || 
+                           tableEl.querySelector('.el-table__body-wrapper');
+      
+      if (scrollWrapper) {
+        scrollWrapper.removeEventListener('scroll', handleTableScroll);
+        scrollWrapper.addEventListener('scroll', handleTableScroll);
+      } else {
+        setTimeout(() => tryInit(count + 1), 200);
+      }
+    });
+  };
+  tryInit();
+};
+
+// 器材定位输入变化处理
+const handleLocateInputChange = (value: string) => {
+  if (value) {
+    // 如果输入了定位码，自动清空器材搜索框
+    materialFilter.keyword = '';
+    highlightedMaterialId.value = null;
+  }
+};
+
+// 器材定位处理
+const handleMaterialLocate = async () => {
+  if (!materialLocateCode.value || !materialLocateCode.value.trim()) {
+    ElMessage.warning('请输入批次编号');
+    return;
+  }
+
+  try {
+    locating.value = true;
+    const pageSize = 10;
+    
+    // 调用定位接口
+    const result = await inventoryDetailAPI.locate({
+      batch_number: materialLocateCode.value,
+      page_size: pageSize
+    });
+    
+    if (result.target_page !== null) {
+      isLocatingScroll.value = true;
+      
+      // 清除筛选条件，显示全部器材
+      materialFilter.keyword = '';
+      materialFilter.major_id = undefined;
+      materialFilter.equipment_id = undefined;
+      
+      // 使用定位返回的页码进行加载
+      await getMaterialList(result.target_page);
+      
+      // 如果定位的器材在页面后半部分，则多加载一页
+      if (result.position !== null) {
+        const positionInPage = ((result.position - 1) % 10) + 1;
+        if (positionInPage > 5 && materialHasMore.value) {
+          await getMaterialList(result.target_page + 1, 'append');
+        }
+      }
+      
+      if (result.found && result.detail_id) {
+        // 先设置高亮
+        highlightedMaterialId.value = result.detail_id;
+        
+        // 等待 DOM 完全渲染后再滚动
+        await nextTick();
+        await nextTick(); // 双重 nextTick 确保 DOM 完全更新
+        
+        const targetDetailId = result.detail_id;
+        // 延迟一小段时间，确保表格渲染和高亮样式都已应用
+        setTimeout(() => {
+          scrollToTargetMaterial(targetDetailId);
+          ElMessage.success(`已定位到: ${result.material_name} (位置: ${result.position})`);
+          
+          // 等待平滑滚动完成后解除锁定
+          setTimeout(() => {
+            isLocatingScroll.value = false;
+          }, 800);
+        }, 100);
+
+        // 20秒后移除高亮
+        setTimeout(() => {
+          if (highlightedMaterialId.value === targetDetailId) {
+            highlightedMaterialId.value = null;
+          }
+        }, 20000);
+      } else {
+        isLocatingScroll.value = false;
+        ElMessage.info('已返回第1页');
+      }
+    } else {
+      ElMessage.warning(`未找到批次编号: ${materialLocateCode.value}`);
+    }
+  } catch (error: any) {
+    isLocatingScroll.value = false;
+    const errorMessage = error.response?.data?.detail || error.message || '定位失败';
+    ElMessage.error(`器材定位失败: ${errorMessage}`);
+  } finally {
+    locating.value = false;
+  }
+};
+
+// 滚动到目标器材
+const scrollToTargetMaterial = (detailId: number) => {
+  if (!materialTableRef.value) return;
+  
+  const index = materialList.value.findIndex(item => item.detail_id === detailId);
+  if (index === -1) return;
+  
+  const tableEl = materialTableRef.value.$el;
+  const tableBody = tableEl.querySelector('.el-table__body-wrapper');
+  
+  if (tableBody) {
+    const rows = tableBody.querySelectorAll('.el-table__row');
+    if (rows[index]) {
+      rows[index].scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  }
+};
+
+// 清除定位
+const handleMaterialLocateClear = async () => {
+  highlightedMaterialId.value = null;
+  materialLocateCode.value = '';
+  await getMaterialList(1);
+  
+  nextTick(() => {
+    if (materialTableRef.value) {
+      const tableEl = materialTableRef.value.$el;
+      const scrollWrapper = tableEl.querySelector('.el-scrollbar__wrap') || 
+                           tableEl.querySelector('.el-table__body-wrapper');
+      if (scrollWrapper) {
+        scrollWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  });
+};
+
+// 获取表格行类名（用于高亮）
+const getRowClassName = ({ row }: { row: any }) => {
+  return row.detail_id === highlightedMaterialId.value ? 'highlighted-row' : '';
+};
+
 // 打开器材选择抽屉
 const openMaterialDrawer = () => {
   // 查看模式下不允许打开器材选择抽屉
@@ -1154,6 +1667,9 @@ const openMaterialDrawer = () => {
   materialDrawerVisible.value = true;
   // 清除筛选状态，确保每次打开都是全新的筛选
   clearTableFilters();
+  
+  // 初始化器材列表滚动监听
+  initTableScroll();
 };
 
 // 关闭抽屉
@@ -1186,26 +1702,34 @@ const addMaterialItem = async (material: InventoryDetailResponse & { addQuantity
       const existingItem = orderItems.value[existingItemIndex];
       const newQuantity = existingItem.quantity + material.addQuantity;
       
-      // 检查合并后的数量是否超过库存
-      // 计算可用库存：实际库存 + 已出库数量（如果是编辑模式）
+      // 检查库存是否充足
       const stockInfo = stockManagement.value.get(material.batch_id!);
-      const maxAllowedQuantity = stockInfo ? stockInfo.original_quantity : material.quantity;
+      const availableStock = stockInfo ? stockInfo.original_quantity : material.quantity;
       
-      if (newQuantity > maxAllowedQuantity) {
-        ElMessage.error(`合并后数量 ${newQuantity} 超过可用库存 ${maxAllowedQuantity}，无法添加`);
-        return;
+      if (isEdit.value) {
+        // 编辑模式：只检查新增数量是否超过真实库存（已出库的数量已在数据库中）
+        if (material.addQuantity > availableStock) {
+          ElMessage.error(`新增数量 ${material.addQuantity} 超过可用库存 ${availableStock}，无法添加`);
+          return;
+        }
+      } else {
+        // 新建模式：检查合并后总数量是否超过真实库存
+        if (newQuantity > availableStock) {
+          ElMessage.error(`合并后数量 ${newQuantity} 超过可用库存 ${availableStock}，无法添加`);
+          return;
+        }
       }
       
-      // 显示合并提示
-      ElMessage.success(`已存在相同批次号器材，数量已合并：${existingItem.quantity} + ${material.addQuantity} = ${newQuantity}`);
-      
       // 如果是编辑模式，实时更新明细项数量
-      if (isEdit.value && orderId.value && material.detail_id !== undefined) {
+      if (isEdit.value && orderId.value && existingItem.detail_id !== undefined) {
         try {
-          await outboundOrderAPI.updateOutboundOrderItem(orderId.value, material.detail_id, {
+          await outboundOrderAPI.updateOutboundOrderItem(orderId.value, existingItem.detail_id, {
             batch_id: material.batch_id,
             quantity: newQuantity
           });
+          
+          // 后端更新成功后再显示合并提示
+          ElMessage.success(`已存在相同批次号器材，数量已合并：${existingItem.quantity} + ${material.addQuantity} = ${newQuantity}`);
         } catch (error: any) {
           // 优先处理detail字段中的详细信息
           if (error.response?.data?.detail) {
@@ -1237,6 +1761,9 @@ const addMaterialItem = async (material: InventoryDetailResponse & { addQuantity
           }
           return;
         }
+      } else {
+        // 新建模式下直接显示合并提示
+        ElMessage.success(`已存在相同批次号器材，数量已合并：${existingItem.quantity} + ${material.addQuantity} = ${newQuantity}`);
       }
       
       // 更新现有项的数量（相当于删除新项，把数量加到现有项上）
@@ -1276,10 +1803,13 @@ const addMaterialItem = async (material: InventoryDetailResponse & { addQuantity
         }
         
         try {
-          await outboundOrderAPI.addOutboundOrderItem(orderId.value, {
+          const result = await outboundOrderAPI.addOutboundOrderItem(orderId.value, {
             batch_id: material.batch_id,
             quantity: material.addQuantity
           });
+          
+          // 将后端返回的item_id赋值给newItem.detail_id
+          newItem.detail_id = result.item_id;
         } catch (error: any) {
           // 显示具体的错误原因
           const errorMessage = error.response?.data?.message || error.message || '器材添加失败';
@@ -1310,43 +1840,69 @@ const addMaterialItem = async (material: InventoryDetailResponse & { addQuantity
 
 // 删除出库明细项
 const removeItem = async (index: number) => {
+  // 如果正在删除中，直接返回（按钮已禁用，这里做二次防护）
+  if (deleting.value) {
+    return;
+  }
+  
   const item = orderItems.value[index];
   
   // 如果是编辑模式，调用API删除明细项
-  if (isEdit.value && orderId.value && item.batch_id) {
+  if (isEdit.value && orderId.value && item.detail_id) {
     try {
-      await outboundOrderAPI.deleteOutboundOrderItem(orderId.value, item.batch_id);
+      deleting.value = true;
+      await outboundOrderAPI.deleteOutboundOrderItem(orderId.value, item.detail_id);
+      
+      // API删除成功后，执行本地删除
+      // 更新库存管理变量（恢复删除的数量）
+      if (item.batch_id) {
+        updateStockOnRemove(item.batch_id, item.quantity);
+      }
+      
+      orderItems.value.splice(index, 1);
+      
+      // 删除后调整页码，确保当前页有效
+      adjustPageAfterDelete();
+      
       ElMessage.success('明细项删除成功');
     } catch (error: any) {
-      // 优先处理detail字段中的详细信息
-      if (error.response?.data?.detail) {
-        const detail = error.response.data.detail;
-        let errorMessage = detail.message || '明细项删除失败';
-        
-        // 如果有问题器材列表，添加到错误信息中
-        if (detail.problematic_items && detail.problematic_items.length > 0) {
-          errorMessage += '\n\n无法删除明细项，原因：\n';
-          detail.problematic_items.forEach((problem: any) => {
-            errorMessage += `- ${problem.reason || '未知原因'}\n`;
-          });
-        }
-        
-        ElMessage.error(errorMessage);
-      } else {
-        // 如果没有detail字段，使用原来的逻辑
-        const errorMessage = error.response?.data?.message || error.message || '明细项删除失败';
-        ElMessage.error(`明细项删除失败: ${errorMessage}`);
-      }
-      return;
+      // 处理后端返回的错误信息（当前API返回字符串格式）
+      const errorMessage = error.response?.data?.detail 
+        || error.response?.data?.message 
+        || error.message 
+        || '明细项删除失败';
+      ElMessage.error(errorMessage);
+    } finally {
+      deleting.value = false;
     }
+  } else {
+    // 新增模式：直接在前端移除
+    // 更新库存管理变量（恢复删除的数量）
+    if (item.batch_id) {
+      updateStockOnRemove(item.batch_id, item.quantity);
+    }
+    
+    orderItems.value.splice(index, 1);
+    
+    // 删除后调整页码，确保当前页有效
+    adjustPageAfterDelete();
+  }
+};
+
+// 删除后调整页码
+const adjustPageAfterDelete = () => {
+  // 计算删除后的总页数
+  const totalPages = Math.ceil(orderItems.value.length / pageSize.value);
+  
+  // 如果当前页超出了总页数，调整到最后一页
+  if (currentPage.value > totalPages && totalPages > 0) {
+    currentPage.value = totalPages;
   }
   
-  // 更新库存管理变量（恢复删除的数量）
-  if (item.batch_id) {
-    updateStockOnRemove(item.batch_id, item.quantity);
+  // 如果删除后没有数据，重置到第1页
+  if (orderItems.value.length === 0) {
+    currentPage.value = 1;
   }
-  
-  orderItems.value.splice(index, 1);
 };
 
 
@@ -1634,6 +2190,48 @@ const handleQuantityChange = async (index: number) => {
   }
 };
 
+// 强制更新冗余字段
+const handleForceUpdate = async () => {
+  if (!orderId.value) {
+    ElMessage.warning('无法获取出库单ID');
+    return;
+  }
+  
+  try {
+    await ElMessageBox.confirm(
+      '此操作将根据入库明细表更新出库明细中的器材编码、名称、规格、单价、单位等字段，是否继续？',
+      '确认强制更新',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+    
+    updating.value = true;
+    const result = await outboundOrderAPI.updateRedundantFields(orderId.value);
+    
+    if (result.success) {
+      ElMessage.success(result.message);
+      
+      // 如果有未找到的批次，显示警告
+      if (result.not_found_batches && result.not_found_batches.length > 0) {
+        ElMessage.warning(`以下批次ID未找到对应的入库明细: ${result.not_found_batches.join(', ')}`);
+      }
+      
+      // 重新加载出库单详情以显示更新后的数据
+      await loadOrderDetail();
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      const errorMessage = error.response?.data?.message || error.message || '强制更新失败';
+      ElMessage.error(`强制更新失败: ${errorMessage}`);
+    }
+  } finally {
+    updating.value = false;
+  }
+};
+
 // 保存出库单
 const handleSave = async () => {
   // 验证表单
@@ -1778,10 +2376,31 @@ onMounted(() => {
   
   .drawer-filter {
     margin-bottom: 20px;
+    flex-shrink: 0; // 防止筛选器被压缩
   }
   
   .drawer-table {
     flex: 1;
+    min-height: 0; // 关键：让flex子元素能正确计算高度
+    display: flex;
+    flex-direction: column;
+    
+    :deep(.el-table) {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      
+      .el-table__inner-wrapper {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .el-table__body-wrapper {
+        flex: 1;
+        overflow-y: auto;
+      }
+    }
   }
 }
 
@@ -1793,5 +2412,36 @@ onMounted(() => {
 :deep(.el-drawer__title) {
   margin: 0 !important;
   padding: 0 !important;
+}
+
+/* 器材定位高亮样式 - 增强视觉效果并覆盖斑马纹 */
+:deep(.el-table__row.highlighted-row) {
+  background: linear-gradient(90deg, #ffd700 0%, #fff9e6 50%, #ffffff 100%) !important;
+  border-left: 4px solid #ff6b00 !important;
+  box-shadow: 0 0 15px rgba(255, 107, 0, 0.3) !important;
+  animation: highlight-pulse 1s ease-in-out infinite;
+  position: relative;
+  z-index: 10 !important;
+}
+
+/* 确保高亮行的单元格背景也被覆盖 */
+:deep(.el-table__row.highlighted-row > td) {
+  background: transparent !important;
+  font-weight: 600 !important;
+  color: #333 !important;
+}
+
+/* 覆盖斑马纹样式 */
+:deep(.el-table--striped .el-table__row.highlighted-row.el-table__row--striped > td) {
+  background: transparent !important;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% { 
+    background: linear-gradient(90deg, #ffd700 0%, #fff9e6 50%, #ffffff 100%);
+  }
+  50% { 
+    background: linear-gradient(90deg, #ffed4e 0%, #fffbf0 50%, #ffffff 100%);
+  }
 }
 </style>
