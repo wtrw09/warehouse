@@ -38,7 +38,6 @@ const preloadImages = () => {
   Promise.all(promises)
     .then(() => {
       imagesLoaded.value = true;
-      console.log('✅ 所有背景图片预加载完成');
       
       // 延迟隐藏预加载器，确保图片完全加载
       setTimeout(() => {
@@ -48,8 +47,6 @@ const preloadImages = () => {
       }, 500);
     })
     .catch(error => {
-      console.warn('⚠️ 部分图片预加载失败:', error);
-      console.error('失败的图片路径:', backgroundImages);
       // 即使部分图片加载失败，也继续显示页面
       imagesLoaded.value = true;
       showPreloader.value = false;
@@ -59,13 +56,11 @@ const preloadImages = () => {
 
 // 组件挂载时开始预加载
 onMounted(() => {
-  console.log('🚀 开始预加载背景图片...');
   preloadImages();
   
   // 设置超时保护，防止无限等待
   setTimeout(() => {
     if (!imagesLoaded.value) {
-      console.warn('⏰ 预加载超时，强制显示页面');
       showPreloader.value = false;
       window.dispatchEvent(new CustomEvent('backgroundPreloaded'));
     }

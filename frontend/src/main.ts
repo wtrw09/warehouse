@@ -52,22 +52,17 @@ app.mount('#app')
 
 // 全局Redis状态检查启动函数
 window.startRedisStatusCheck = async () => {
-  console.log('启动Redis状态检查...')
   try {
     // 强制从服务器获取最新的认证策略信息，避免使用缓存
     const { forceCheckRedisStatus } = useRedisStatus()
     const status = await forceCheckRedisStatus()
     
     if (status.auth_strategy === 'sliding_session') {
-      console.log('当前认证策略为滑动会话模式，启动Redis状态检查')
       const { startPeriodicCheck } = useRedisStatus()
       startPeriodicCheck()
-      console.log('Redis状态检查已启动')
-    } else {
-      console.log('当前认证策略为JWT固定模式，跳过Redis状态检查')
     }
   } catch (error) {
-    console.error('启动Redis状态检查失败:', error)
+    // 启动Redis状态检查失败
   }
 }
 

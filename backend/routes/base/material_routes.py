@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Security, HTTPException, UploadFile, File, Query
 from sqlmodel import Session, select, func, and_, or_
-from typing import List
+from typing import List, Optional
 import logging
 from datetime import datetime
 import json
@@ -14,7 +14,8 @@ from schemas.base.material import (
     MaterialCreate, MaterialUpdate, MaterialResponse,
     BatchMaterialDelete, MaterialListResponse, MaterialQueryParams, MaterialStatistics,
     MaterialPaginationParams, MaterialPaginationResult, MaterialBatchImportResult,
-    MajorOptionsResponse, MajorOption, EquipmentOptionsResponse, EquipmentOption
+    MajorOptionsResponse, MajorOption, EquipmentOptionsResponse, EquipmentOption,
+    MaterialLocateResult
 )
 from schemas.account.user import UserResponse
 from core.security import get_current_active_user, get_required_scopes_for_route
@@ -318,7 +319,6 @@ async def create_material(
         
         # 自动获取major_id：通过equipment_id查询装备表获取对应的major_id
         major_id = None
-        major_name = None
         equipment_name = None
         
         if material.equipment_id:
@@ -326,11 +326,6 @@ async def create_material(
             if equipment:
                 major_id = equipment.major_id
                 equipment_name = equipment.equipment_name
-                
-                # 获取专业名称
-                if major_id:
-                    major = db.exec(select(Major).where(Major.id == major_id)).first()
-                    major_name = major.major_name if major else None
         
         # 创建器材记录
         db_material = Material(
@@ -342,7 +337,6 @@ async def create_material(
             safety_stock=material.safety_stock,
             material_query_code=material_query_code,
             major_id=major_id,
-            major_name=major_name,
             equipment_id=material.equipment_id,
             equipment_name=equipment_name,
             creator=current_user.username,
@@ -353,6 +347,12 @@ async def create_material(
         db.add(db_material)
         db.commit()
         db.refresh(db_material)
+        
+        # 获取major_name用于响应
+        major_name = None
+        if db_material.major_id:
+            major = db.exec(select(Major).where(Major.id == db_material.major_id)).first()
+            major_name = major.major_name if major else None
         
         # 构建响应数据
         material_dict = {
@@ -422,8 +422,9 @@ async def update_material(
             update_data["material_query_code"] = generate_material_query_code(new_name, new_spec)
         
         # 装备和专业字段智能处理逻辑：
-        # 1. 装备有值，专业为空：通过装备获取专业信息
-        # 2. 装备为空：同时清空专业和装备信息
+        # 1. 装备有值：通过装备获取专业信息（忽略用户传入的major_id）
+        # 2. 装备为空但major_id有值：允许用户直接设置一级专业
+        # 3. 装备为空且major_id也为空：清空专业和装备信息
         # 处理装备和专业字段更新
         if material_update.equipment_id:
             # 装备有值，通过装备表获取对应的专业信息
@@ -431,17 +432,18 @@ async def update_material(
             if equipment:
                 update_data["major_id"] = equipment.major_id
                 update_data["equipment_name"] = equipment.equipment_name
-                
-                # 获取专业名称
-                if equipment.major_id:
-                    major = db.exec(select(Major).where(Major.id == equipment.major_id)).first()
-                    update_data["major_name"] = major.major_name if major else None
-        else:
-            # 装备为空（None、空值或undefined），同时清空专业和装备信息
-            update_data["major_id"] = None
-            update_data["equipment_id"] = None  # 关键：必须同时清空equipment_id
+        elif material_update.equipment_id is None:
+            # 装备为空（None、空值或undefined）
+            update_data["equipment_id"] = None
             update_data["equipment_name"] = None
-            update_data["major_name"] = None
+            
+            # 检查用户是否传入了major_id
+            if material_update.major_id is not None:
+                # 用户传入了major_id，使用用户提供的值（已在update_data中）
+                pass
+            else:
+                # 用户没有传入major_id，清空专业信息
+                update_data["major_id"] = None
         
         # 设置更新时间
         update_data["update_time"] = datetime.now()
@@ -454,6 +456,18 @@ async def update_material(
         db.commit()
         db.refresh(db_material)
         
+        # 获取major_name用于响应
+        major_name = None
+        if db_material.major_id:
+            major = db.exec(select(Major).where(Major.id == db_material.major_id)).first()
+            major_name = major.major_name if major else None
+        
+        # 获取equipment_name用于响应
+        equipment_name = None
+        if db_material.equipment_id:
+            equipment = db.exec(select(Equipment).where(Equipment.id == db_material.equipment_id)).first()
+            equipment_name = equipment.equipment_name if equipment else None
+        
         # 构建响应数据
         material_dict = {
             "id": db_material.id,
@@ -465,9 +479,9 @@ async def update_material(
             "safety_stock": db_material.safety_stock,
             "material_query_code": db_material.material_query_code,
             "major_id": db_material.major_id,
-            "major_name": db_material.major_name,
+            "major_name": major_name,
             "equipment_id": db_material.equipment_id,
-            "equipment_name": db_material.equipment_name,
+            "equipment_name": equipment_name,
             "creator": db_material.creator,
             "create_time": db_material.create_time,
             "update_time": db_material.update_time
@@ -721,3 +735,119 @@ async def get_equipment_options_by_majors(
     except Exception as e:
         logger.error(f"获取装备选项失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取装备选项失败: {str(e)}")
+
+# 器材快速定位接口(仅支持器材编码精确匹配)
+@material_router.get("/locate", response_model=MaterialLocateResult)
+async def locate_material_by_code(
+    material_code: Optional[str] = Query(None, description="器材编码(可选,为空则返回第1页)"),
+    page_size: int = Query(10, ge=1, le=100, description="每页大小,用于计算页码"),
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/materials"))
+):
+    """
+    器材快速定位接口(仅支持器材编码精确匹配)
+    
+    功能说明:
+    1. 根据器材编码精确查找匹配的器材
+    2. 计算该器材在ID升序列表中的位置
+    3. 返回目标页码和位置信息
+    
+    匹配规则:
+    - 仅支持精确匹配器材编码
+    """
+    try:
+        # 如果器材编码为None或空,返回重头开始显示的结果(第1页第1个位置)
+        if not material_code or not material_code.strip():
+            return MaterialLocateResult(
+                found=False,
+                material=None,
+                position=1,
+                target_page=1,
+                page_size=page_size,
+                total_before=0,
+                suggestions=[]
+            )
+        
+        # 去除前后空格
+        material_code = material_code.strip()
+        
+        # 第1步: 构建基础查询条件(仅查询未删除的器材)
+        base_query = select(Material).where(Material.is_delete != True)
+        
+        # 第2步: 查找目标器材(仅精确匹配)
+        target_material = db.exec(
+            base_query.where(Material.material_code == material_code)
+        ).first()
+        
+        # 第3步: 如果未找到,返回空结果
+        if not target_material:
+            return MaterialLocateResult(
+                found=False,
+                material=None,
+                position=None,
+                target_page=None,
+                page_size=page_size,
+                total_before=None,
+                suggestions=[]
+            )
+        
+        # 第4步: 计算目标器材的位置(固定按ID升序)
+        # 统计ID小于目标器材的数量
+        position_query = select(func.count(Material.id)).where(
+            Material.is_delete != True,
+            Material.id < target_material.id
+        )
+        
+        total_before = db.exec(position_query).one()
+        
+        # 位置从1开始计数
+        position = total_before + 1
+        
+        # 计算目标页码
+        target_page = (position + page_size - 1) // page_size
+        
+        # 第5步: 构建完整的器材响应
+        major_name = None
+        equipment_name = None
+        
+        if target_material.major_id:
+            major = db.exec(select(Major).where(Major.id == target_material.major_id)).first()
+            major_name = major.major_name if major else None
+        
+        if target_material.equipment_id:
+            equipment = db.exec(select(Equipment).where(Equipment.id == target_material.equipment_id)).first()
+            equipment_name = equipment.equipment_name if equipment else None
+        
+        material_response = MaterialResponse(
+            id=target_material.id,
+            material_code=target_material.material_code,
+            material_name=target_material.material_name,
+            material_specification=target_material.material_specification,
+            material_desc=target_material.material_desc,
+            material_wdh=target_material.material_wdh,
+            safety_stock=target_material.safety_stock,
+            material_query_code=target_material.material_query_code,
+            major_id=target_material.major_id,
+            major_name=major_name,
+            equipment_id=target_material.equipment_id,
+            equipment_name=equipment_name,
+            creator=target_material.creator,
+            create_time=target_material.create_time,
+            update_time=target_material.update_time
+        )
+        
+        return MaterialLocateResult(
+            found=True,
+            material=material_response,
+            position=position,
+            target_page=target_page,
+            page_size=page_size,
+            total_before=total_before,
+            suggestions=[]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"器材定位失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"器材定位失败: {str(e)}")

@@ -20,22 +20,12 @@ const getServerBaseURL = (): string => {
     window.location.port === '3000'     // 常用开发端口
   );
   
-  console.log('[BaseURL Debug]', {
-    hostname: window.location.hostname,
-    port: window.location.port,
-    protocol: window.location.protocol,
-    href: window.location.href,
-    isDevelopment
-  });
-  
   // 生产环境，强制使用 Nginx 代理
   if (!isDevelopment) {
-    console.log('[BaseURL] 生产环境，使用 /api 代理', { hostname: window.location.hostname, port: window.location.port });
     return '/api'; // 生产环境返回 /api，通过 nginx 代理访问后端
   }
   
   // 开发环境下，从本地存储读取配置
-  console.log('[BaseURL] 开发环境，从 localStorage 读取配置');
   try {
     const savedSettings = localStorage.getItem('serverSettings');
     if (savedSettings) {
@@ -43,21 +33,19 @@ const getServerBaseURL = (): string => {
       const ip = parsed.ip || 'localhost';
       const port = parsed.port || 8000;
       const url = `http://${ip}:${port}`;
-      console.log('[BaseURL] 使用配置:', url);
       return url;
     }
   } catch (err) {
-    console.error('获取服务器设置失败:', err);
+    // 获取服务器设置失败
   }
   // 开发环境默认值
-  console.log('[BaseURL] 使用默认值: http://localhost:8000');
   return 'http://localhost:8000';
 };
 
 // 创建 axios 实例
 // 注意：baseURL 不在这里设置，而是在请求拦截器中动态设置
 const api = axios.create({
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
   },
@@ -108,20 +96,9 @@ api.interceptors.request.use(
       // console.log('[Request Interceptor] 检测到 FormData，已移除 Content-Type');
     }
     
-    // 详细调试信息
-    console.log('[Request Interceptor]', {
-      method: config.method?.toUpperCase(),
-      baseURL: config.baseURL,
-      url: config.url,
-      fullURL: config.baseURL + config.url,
-      isFormData: config.data instanceof FormData,
-      headers: config.headers
-    });
-    
     return config;
   },
   (error: any) => {
-    console.error('[Request Interceptor Error]', error);
     return Promise.reject(error);
   }
 );
@@ -134,9 +111,6 @@ api.interceptors.response.use(
   async (error: any) => {
     // 处理网络连接错误（服务器不可用）
     if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
-      console.error('服务器连接失败:', error.message);
-      
-      // 只显示错误提示，不清除token，不跳转登录页
       // 网络错误可能是临时的，不应该强制用户退出登录
       ElMessage.error('网络连接失败，请检查网络或稍后重试');
       
@@ -145,8 +119,6 @@ api.interceptors.response.use(
     
     // 处理服务器内部错误（500系列）
     if (error.response?.status >= 500) {
-      console.error('服务器内部错误:', error.response?.status, error.response?.data);
-      
       // 检查是否应该本地处理错误（不显示全局错误消息）
       const handleErrorLocally = error.config?.headers?.['x-handle-error-locally'] === 'true';
       
@@ -208,9 +180,6 @@ api.interceptors.response.use(
       
       if (errorDetail.includes('令牌已过期') || errorDetail.includes('会话已过期') || 
           errorCode.includes('SESSION') || errorCode.includes('EXPIRED')) {
-        
-        console.log(`检测到认证过期 [${errorCode}]:`, errorDetail);
-        
         // 尝试刷新令牌
         try {
           const refreshResponse = await api.post('/refresh-token');
@@ -221,8 +190,6 @@ api.interceptors.response.use(
           
           // 更新原请求的Authorization头
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          
-          console.log('令牌刷新成功，重试原请求');
           
           // 重试原请求
           return api(originalRequest);
@@ -258,9 +225,6 @@ api.interceptors.response.use(
           }
           
           // 仅记录错误到控制台，避免与后端错误消息重复显示
-          console.error('令牌刷新失败:', errorMessage, refreshErrorDetail);
-          
-          // 清除token并跳转到登录页
           localStorage.removeItem('token');
           router.push('/login');
           return Promise.reject(refreshError);

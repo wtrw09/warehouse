@@ -82,7 +82,13 @@ class ScheduledBackupManager:
         
         # 获取最新的备份
         latest_backup = backups[0]  # 已按时间倒序排序
+        
+        # timestamp可能是字符串(ISO格式)或datetime对象，需要统一处理
         last_time = latest_backup["timestamp"]
+        if isinstance(last_time, str):
+            # 如果是字符串，解析为datetime对象
+            last_time = datetime.fromisoformat(last_time.replace('Z', '+00:00'))
+        
         days_since = (datetime.now() - last_time).days
         
         logger.info(
@@ -235,6 +241,15 @@ class ScheduledBackupManager:
         try:
             # 获取所有用户全量备份
             backups = self.backup_manager.get_backup_list("user_full")
+            
+            # timestamp可能是字符串，需要先转换为datetime对象再排序
+            for backup in backups:
+                if isinstance(backup["timestamp"], str):
+                    # 使用fromisoformat方法(Python 3.7+)
+                    backup["timestamp"] = datetime.fromisoformat(
+                        backup["timestamp"].replace('Z', '+00:00')
+                    )
+            
             backups.sort(key=lambda x: x["timestamp"], reverse=True)
             
             # 保留前60个,删除其余
@@ -301,7 +316,11 @@ class ScheduledBackupManager:
         
         # 返回距离目标时间的秒数
         seconds_until = (target_time - now).total_seconds()
-        logger.info(f"下次执行时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        logger.info(f"计算下次执行时间:")
+        logger.info(f"  当前时间: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"  目标时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"  等待时长: {seconds_until/3600:.2f}小时 ({seconds_until:.0f}秒)")
         
         return seconds_until
     
@@ -343,26 +362,39 @@ class ScheduledBackupManager:
             logger.warning("定时备份调度器已在运行中，跳过重复启动")
             return
         
+        logger.info("="*60)
         logger.info("启动定时备份调度器")
         logger.info(f"任务执行时间: 每天 02:00")
         logger.info(f"每日备份保留: {self.daily_retention_days}天")
         logger.info(f"月度备份保留: {self.monthly_retention_count}个月")
         logger.info(f"用户全量备份保留: {self.user_full_retention_count}个月")
+        logger.info(f"后台模式: {background}")
+        logger.info(f"当前时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         self.running = True
         
         # 调度第一次执行
         self._schedule_next_run()
         
-        logger.info("定时调度器已启动,等待执行...")
+        # 记录调度器队列状态
+        if not self.scheduler.empty():
+            next_task_time = self.scheduler.queue[0].time
+            next_task_dt = datetime.fromtimestamp(next_task_time)
+            logger.info(f"下一次备份任务已调度: {next_task_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            logger.warning("调度器队列为空，任务可能未正确调度！")
+        
+        logger.info("="*60)
         
         # 在单独的线程中运行调度器
         self.scheduler_thread = threading.Thread(target=self._run_scheduler, daemon=True)
         self.scheduler_thread.start()
+        logger.info(f"调度器线程已启动 (Thread ID: {self.scheduler_thread.ident})")
         
         # 如果不是后台模式，主线程保持运行
         if not background:
             try:
+                logger.info("调度器进入前台运行模式，按 Ctrl+C 停止...")
                 while self.running:
                     time.sleep(1)
             except KeyboardInterrupt:
@@ -372,10 +404,51 @@ class ScheduledBackupManager:
     def _run_scheduler(self):
         """
         在后台线程中运行调度器
+        使用阻塞模式确保任务被正确执行
         """
-        while self.running:
-            self.scheduler.run(blocking=False)
-            time.sleep(1)
+        logger.info("调度器线程开始运行...")
+        last_heartbeat = time.time()
+        heartbeat_interval = 3600  # 每小时输出一次心跳日志
+        
+        try:
+            # 使用阻塞模式运行调度器，确保任务被执行
+            # 当running被设置为False时，会在下一次任务执行后退出
+            while self.running:
+                # 检查调度器队列是否为空
+                if not self.scheduler.empty():
+                    # 获取下一个任务的延迟时间
+                    delay = self.scheduler.queue[0].time - time.time()
+                    if delay > 0:
+                        # 等待到执行时间，但每秒检查一次running状态
+                        wait_time = min(delay, 1.0)
+                        time.sleep(wait_time)
+                        # 如果已停止，退出循环
+                        if not self.running:
+                            break
+                    # 执行到期的任务
+                    self.scheduler.run(blocking=False)
+                else:
+                    # 队列为空，等待1秒后重新检查
+                    time.sleep(1)
+                
+                # 定期输出心跳日志
+                current_time = time.time()
+                if current_time - last_heartbeat >= heartbeat_interval:
+                    if not self.scheduler.empty():
+                        next_task_time = self.scheduler.queue[0].time
+                        next_task_dt = datetime.fromtimestamp(next_task_time)
+                        remaining_hours = (next_task_time - current_time) / 3600
+                        logger.info(f"调度器心跳: 运行中 | 下次任务: {next_task_dt.strftime('%Y-%m-%d %H:%M:%S')} (还有{remaining_hours:.1f}小时)")
+                    else:
+                        logger.warning("调度器心跳: 队列为空！")
+                    last_heartbeat = current_time
+                    
+        except Exception as e:
+            logger.error(f"调度器运行异常: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+        finally:
+            logger.info("调度器线程已退出")
     
     def stop_scheduler(self):
         """

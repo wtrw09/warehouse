@@ -112,6 +112,16 @@ def setup_global_logging():
                 'level': 'INFO',
                 'handlers': ['console', 'file_info'],
                 'propagate': False
+            },
+            'fontTools': {
+                'level': 'WARNING',
+                'handlers': [],
+                'propagate': False
+            },
+            'fpdf': {
+                'level': 'WARNING',
+                'handlers': [],
+                'propagate': False
             }
         }
     }

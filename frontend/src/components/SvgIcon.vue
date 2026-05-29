@@ -27,7 +27,6 @@ const loadSvg = async (src) => {
   try {
     // 检查src是否为undefined或空
     if (!src) {
-      console.warn('SVG src is undefined or empty');
       return;
     }
     
@@ -46,7 +45,7 @@ const loadSvg = async (src) => {
           }
         }
       } catch (importError) {
-        console.warn('SVG import failed, falling back to fetch:', importError);
+        // 降级使用fetch加载
       }
     }
     
@@ -56,10 +55,10 @@ const loadSvg = async (src) => {
       const svgText = await response.text();
       svgContent.value = svgText;
     } else {
-      console.error('Failed to fetch SVG:', response.status, response.statusText);
+      // SVG加载失败，静默处理
     }
   } catch (error) {
-    console.error('Failed to load SVG:', error);
+    // SVG加载错误，静默处理
   }
 }
 

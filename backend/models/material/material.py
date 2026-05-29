@@ -16,7 +16,6 @@ class Material(SQLModelBase, table=True):
     safety_stock: Optional[int] = Field(default=None, description="安全库存")
     material_query_code: Optional[str] = Field(default=None, description="器材查询编码")
     major_id: Optional[int] = Field(default=None, foreign_key="majors.id", description="所属专业ID")
-    major_name: Optional[str] = Field(default=None, description="专业名称")
     equipment_id: Optional[int] = Field(default=None, foreign_key="equipments.id", description="所属装备ID")
     equipment_name: Optional[str] = Field(default=None, description="装备名称")
     creator: Optional[str] = Field(default=None, description="创建人")

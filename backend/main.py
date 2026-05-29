@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.all_routes import router
-from database import get_engine, get_db
+from database import get_engine, get_db, close_database
 from contextlib import asynccontextmanager
 
 from initialize.initialize_system import initialize_all, is_system_initialized
@@ -17,30 +17,27 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 检查系统初始化状态并执行完整初始化
+    logger.info("="*50)
+    logger.info("应用程序启动中...")
+    logger.info("="*50)
     try:
         # 从配置中加载数据库URL并设置
         from core.config import settings
         from database import set_database_url
         set_database_url(settings.DATABASE_URL)
-        print(f"✓ 已设置数据库URL: {settings.DATABASE_URL}")
-        
+
         # 获取数据库引擎确保连接正常
         engine = get_engine()
-        print("✓ 数据库引擎初始化成功")
         
         # 检查系统是否需要初始化
         if not is_system_initialized():
-            print("系统未初始化，开始执行完整初始化...")
             # 系统未初始化时，执行完整初始化（包括数据库表创建）
             initialize_all()  # 初始化系统数据
         else:
-            print("✓ 系统已初始化，测试数据库连接...")
             # 测试数据库连接
             db_gen = get_db()
             next(db_gen)  # 触发数据库连接测试
-            print("✓ 数据库连接正常")
     except Exception as e:
-        print(f"❌ 系统初始化检查失败: {e}")
         import traceback
         traceback.print_exc()
     
@@ -49,18 +46,16 @@ async def lifespan(app: FastAPI):
         if setup_fonts_on_startup():
             pass
         else:
-            print("⚠ 字体配置初始化失败，将使用默认字体")
+            pass
     except Exception as e:
-        print(f"❌ 字体配置初始化异常: {e}")
+        pass
     
     # 启动定时备份调度器（后台运行）
     backup_scheduler = None
     try:
         backup_scheduler = ScheduledBackupManager()
         backup_scheduler.start_scheduler(background=True)
-        print("✓ 定时备份调度器已启动")
     except Exception as e:
-        print(f"⚠ 定时备份调度器启动失败: {e}")
         logger.error(f"定时备份调度器启动异常: {e}")
     
     # 启动定时任务管理器（登录记录清理等）
@@ -68,30 +63,48 @@ async def lifespan(app: FastAPI):
     try:
         scheduler = Scheduler()
         await scheduler.start()
-        print("✓ 定时任务管理器已启动")
     except Exception as e:
-        print(f"⚠ 定时任务管理器启动失败: {e}")
         logger.error(f"定时任务管理器启动异常: {e}")
     
     # 程序运行中
+    logger.info("="*50)
+    logger.info("应用程序启动完成，开始接收请求")
+    logger.info("="*50)
     yield
     
     # 关闭时执行的代码
+    logger.info("="*50)
+    logger.info("收到关闭信号，开始优雅关闭...")
+    logger.info("="*50)
     # 停止定时备份调度器
     if backup_scheduler:
         try:
+            logger.info("正在停止定时备份调度器...")
             backup_scheduler.stop_scheduler()
-            print("✓ 定时备份调度器已停止")
+            logger.info("✓ 定时备份调度器已停止")
         except Exception as e:
-            print(f"⚠ 停止定时备份调度器失败: {e}")
-    
+            logger.error(f"停止定时备份调度器失败: {e}")
+            
     # 停止定时任务管理器
     if scheduler:
         try:
+            logger.info("正在停止定时任务管理器...")
             await scheduler.stop()
-            print("✓ 定时任务管理器已停止")
+            logger.info("✓ 定时任务管理器已停止")
         except Exception as e:
-            print(f"⚠ 停止定时任务管理器失败: {e}")
+            logger.error(f"停止定时任务管理器失败: {e}")
+            
+    # 关闭数据库引擎，执行 WAL checkpoint
+    try:
+        logger.info("正在关闭数据库引擎...")
+        close_database()
+        logger.info("✓ 数据库引擎已正常关闭")
+    except Exception as e:
+        logger.error(f"关闭数据库引擎失败: {e}")
+        
+    logger.info("="*50)
+    logger.info("应用程序已完全关闭")
+    logger.info("="*50)
 
 # 创建FastAPI应用并传入lifespan参数
 app = FastAPI(title="仓库管理系统", version="1.0", lifespan=lifespan)

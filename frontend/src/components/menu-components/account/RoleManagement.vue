@@ -360,15 +360,11 @@ const loadRoles = async () => {
     }));
 
   } catch (err: any) {
-    console.error('加载角色列表失败:', err);
-    
     if (err.response?.status === 403) {
       error.value = '权限不足，无法访问角色管理功能';
       ElMessage.error('权限不足，请与管理员联系');
     } else if (err.response?.status === 401) {
       error.value = '身份验证失败，请重新登录';
-      // 全局拦截器已经处理了401错误，这里只记录错误不重复显示
-      console.error('认证失败:', err.response?.data?.detail || '请重新登录');
     } else {
       error.value = err.response?.data?.detail || '加载角色列表失败';
       ElMessage.error(error.value || '加载角色列表失败');
@@ -391,7 +387,6 @@ const loadPermissions = async () => {
       roleForm.value.permissions = [response[response.length - 1].id];
     }
   } catch (err: any) {
-    console.error('加载权限列表失败:', err);
     ElMessage.error('加载权限列表失败');
   } finally {
     permissionsLoading.value = false;
@@ -495,8 +490,6 @@ const handleDelete = async (role: RoleWithPermissions) => {
       return; // 用户取消
     }
     
-    console.error('删除角色失败:', err);
-    
     if (err.response?.status === 400) {
       ElMessage.error('该角色下存在用户，无法删除');
     } else {
@@ -544,8 +537,6 @@ const handleSaveRole = async () => {
     roleDialog.value.visible = false;
     loadRoles(); // 重新加载列表
   } catch (err: any) {
-    console.error('保存角色失败:', err);
-    
     if (err.response?.status === 400) {
       ElMessage.error('角色名称已存在或参数错误');
     } else {
@@ -565,7 +556,7 @@ onMounted(async () => {
       try {
         currentUser.value = JSON.parse(userData);
       } catch (err) {
-        console.error('解析用户数据失败:', err);
+        // 解析失败
       }
     }
   }

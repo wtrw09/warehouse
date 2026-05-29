@@ -284,7 +284,12 @@ class BackupManager:
         # 清理每日备份
         daily_backups = self.get_backup_list("daily")
         for backup in daily_backups:
-            if (current_time - backup["timestamp"]) > timedelta(days=keep_days):
+            # timestamp可能是字符串(ISO格式)，需要转换为datetime对象
+            backup_time = backup["timestamp"]
+            if isinstance(backup_time, str):
+                backup_time = datetime.fromisoformat(backup_time.replace('Z', '+00:00'))
+            
+            if (current_time - backup_time) > timedelta(days=keep_days):
                 try:
                     backup_path = Path(backup["path"])
                     backup_path.unlink()
@@ -294,6 +299,14 @@ class BackupManager:
         
         # 清理月度备份（保留指定数量的最新备份）
         monthly_backups = self.get_backup_list("monthly")
+        
+        # 转换timestamp为datetime对象后再排序
+        for backup in monthly_backups:
+            if isinstance(backup["timestamp"], str):
+                backup["timestamp"] = datetime.fromisoformat(
+                    backup["timestamp"].replace('Z', '+00:00')
+                )
+        
         monthly_backups.sort(key=lambda x: x["timestamp"], reverse=True)
         
         if len(monthly_backups) > keep_monthly:

@@ -11,7 +11,9 @@ from .main_database import (
     check_database_exists,
     set_database_url,
     get_database_url,
-    create_database_engine
+    create_database_engine,
+    checkpoint_wal,
+    close_database
 )
 
 from .system_config_database import (
@@ -32,6 +34,8 @@ __all__ = [
     'set_database_url',
     'get_database_url',
     'create_database_engine',
+    'checkpoint_wal',
+    'close_database',
     
     # 系统配置数据库函数
     'get_system_config_engine',

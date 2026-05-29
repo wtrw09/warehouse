@@ -91,3 +91,13 @@ class InventoryDetailsQueryParams(InventoryDetailsBaseQueryParams):
 class InventoryDetailsAllQueryParams(InventoryDetailsBaseQueryParams):
     """库存器材明细查询参数模型（不分页）"""
     pass
+
+
+class InventoryDetailLocateResult(BaseModel):
+    """库存明细定位结果"""
+    found: bool = Field(..., description="是否找到匹配的库存明细")
+    detail_id: Optional[int] = Field(None, description="库存明细ID(用于定位和高亮)")
+    material_name: Optional[str] = Field(None, description="器材名称(用于显示提示)")
+    position: Optional[int] = Field(None, description="明细在detail_id升序列表中的位置(从1开始)")
+    target_page: Optional[int] = Field(None, description="明细所在页码")
+    page_size: int = Field(10, description="用于计算页码的每页大小")

@@ -224,15 +224,11 @@ const loadPermissions = async () => {
     permissions.value = response;
     ElMessage.success(`成功加载 ${response.length} 个权限`);
   } catch (err: any) {
-    console.error('加载权限列表失败:', err);
-    
     if (err.response?.status === 403) {
       error.value = '权限不足，无法访问权限管理功能';
       ElMessage.error('权限不足，请与管理员联系');
     } else if (err.response?.status === 401) {
       error.value = '身份验证失败，请重新登录';
-      // 全局拦截器已经处理了401错误，这里只记录错误不重复显示
-      console.error('认证失败:', err.response?.data?.detail || '请重新登录');
     } else {
       error.value = err.response?.data?.detail || '加载权限列表失败';
       ElMessage.error(error.value || '加载权限列表失败');
@@ -251,7 +247,7 @@ onMounted(async () => {
       try {
         currentUser.value = JSON.parse(userData);
       } catch (err) {
-        console.error('解析用户数据失败:', err);
+        // 解析失败，静默处理
       }
     }
   }

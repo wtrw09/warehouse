@@ -15,7 +15,6 @@ const showPreloader = ref(true);
 
 // 监听背景预加载完成事件
 const handleBackgroundPreloaded = () => {
-  console.log('🎉 背景预加载完成，显示主页面');
   showPreloader.value = false;
 };
 
@@ -25,7 +24,6 @@ onMounted(() => {
   
   // 如果是登录页，立即显示（避免双重预加载）
   if (window.location.pathname === '/login' || window.location.pathname === '/') {
-    console.log('🔍 检测到登录页，跳过预加载器');
     showPreloader.value = false;
   }
 });

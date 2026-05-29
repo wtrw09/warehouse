@@ -13,7 +13,6 @@ class SubMajor(SQLModelBase, table=True):
     sub_major_code: str = Field(index=True, description="二级专业代码")
     description: Optional[str] = Field(default=None, sa_column=Field(JSON), description="描述列表（JSON格式），用户可以自行添加多个描述项，修改时自动删除重复项")
     major_id: Optional[int] = Field(default=None, foreign_key="majors.id", description="所属一级专业ID")
-    major_name: Optional[str] = Field(default=None, description="一级专业名称")
     reserved: Optional[str] = Field(default=None, description="保留字段")
     creator: Optional[str] = Field(default=None, description="创建人")
     is_delete: bool = Field(default=False, description="是否被删除")

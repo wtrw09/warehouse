@@ -39,8 +39,10 @@ services:
       - ./warehouseBackend/logs:/app/logs
       - ./warehouseBackend/backups:/app/backups
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+    stop_grace_period: 20s  # 优雅关闭超时时间，确保数据库正常关闭
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -62,9 +64,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 5s
       timeout: 3s
-      retries: 3
+      retries: 5
+      start_period: 5s
     networks:
       - warehouse-network
 

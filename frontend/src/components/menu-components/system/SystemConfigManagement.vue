@@ -376,7 +376,7 @@ const hasPermission = (permission: string): boolean => {
         const parsedUserData = JSON.parse(userData)
         return parsedUserData.permissions?.includes(permission) || false
       } catch (err) {
-        console.error('解析用户数据失败:', err)
+        // 解析失败
       }
     }
     return false
@@ -497,16 +497,14 @@ const getConfigName = (configKey: string) => {
 
 // 处理配置变更
 const handleConfigChange = (config: SystemConfigResponse & { newValue?: any }) => {
-  console.log(`配置 ${config.config_key} 值变更为:`, config.newValue)
+  // 配置变更处理
 }
 
 // 加载系统状态和配置
 const loadSystemStatus = async () => {
-  console.log('开始加载系统状态和配置...');
   try {
     // 获取系统初始化状态
     const initStatus = await systemAPI.config.getSystemInitStatus();
-    console.log('系统初始化状态API响应:', initStatus);
     
     // 设置系统状态
     systemStatus.value = {
@@ -515,11 +513,8 @@ const loadSystemStatus = async () => {
       init_version: initStatus.init_version
     };
     
-    console.log('系统初始化状态加载成功:', systemStatus.value);
-    
     // 获取系统配置
     const configResponse = await systemAPI.config.getSystemConfig();
-    console.log('系统配置API响应:', configResponse);
     
     // 后端返回的是包含configs和total的对象，我们需要提取configs数组
     if (configResponse && configResponse.configs) {
@@ -545,13 +540,10 @@ const loadSystemStatus = async () => {
           newValue: convertedValue
         };
       });
-      console.log('系统配置加载成功，共', configResponse.total, '项配置:', configs.value);
     } else {
-      console.warn('API响应中缺少configs字段:', configResponse);
       ElMessage.warning('系统配置数据格式异常');
     }
   } catch (error) {
-    console.error('加载系统状态和配置失败:', error);
     ElMessage.error('加载系统状态和配置失败');
   }
 };
@@ -559,7 +551,6 @@ const loadSystemStatus = async () => {
 // 加载系统配置
 const loadConfigs = async () => {
   if (!hasPermission('AUTH-read')) {
-    console.log('权限检查失败: 缺少AUTH-read权限')
     return
   }
   
@@ -567,14 +558,9 @@ const loadConfigs = async () => {
   error.value = null
   
   try {
-    console.log('开始加载系统配置...')
     const response = await systemAPI.config.getSystemConfig()
-    console.log('系统配置API响应:', response)
     
     if (response && response.configs) {
-      console.log('配置列表数量:', response.configs.length)
-      console.log('配置列表内容:', response.configs)
-      
       // 为每个配置项添加newValue属性用于编辑，并根据配置类型进行类型转换
       configs.value = response.configs.map((config: SystemConfigResponse) => {
         let convertedValue: any = config.config_value;
@@ -597,20 +583,13 @@ const loadConfigs = async () => {
           newValue: convertedValue
         };
       })
-      
-      console.log('配置数据已设置:', configs.value)
     } else {
-      console.warn('API响应中没有configs属性或为空')
       configs.value = []
     }
   } catch (err: any) {
-    console.error('加载系统配置失败:', err)
-    console.error('错误详情:', err.response?.data || err.message)
-    console.error('错误状态码:', err.response?.status)
     error.value = err.response?.data?.detail || '加载系统配置失败，请稍后重试'
   } finally {
     loading.value = false
-    console.log('加载配置完成')
   }
 }
 
@@ -652,7 +631,6 @@ const initializeSystem = async () => {
     
     // 调用后端初始化系统API
     const response = await systemAPI.config.initializeSystem()
-    console.log('系统初始化API响应:', response)
     
     ElMessage.success(response.message || '系统初始化成功')
     
@@ -660,7 +638,6 @@ const initializeSystem = async () => {
     refreshConfigs()
   } catch (err: any) {
     if (err !== 'cancel') {
-      console.error('系统初始化失败:', err)
       ElMessage.error(err.response?.data?.detail || '系统初始化失败')
     }
   } finally {
@@ -672,7 +649,6 @@ const initializeSystem = async () => {
 const testRedisConnection = async () => {
   try {
     testingRedis.value = true
-    console.log('开始测试Redis连接...')
     
     // 使用全局状态管理检查Redis状态
     const { forceCheckRedisStatus, showStatusNotification } = useRedisStatus()
@@ -685,7 +661,6 @@ const testRedisConnection = async () => {
     showStatusNotification(redisStatusInfo)
     
   } catch (err: any) {
-    console.error('Redis连接测试失败:', err)
     redisStatus.value = false
     
     // 处理认证错误
@@ -704,7 +679,6 @@ const testRedisConnection = async () => {
 
 // 保存单个配置
 const saveSingleConfig = async (config: SystemConfigResponse & { newValue?: any, saving?: boolean }) => {
-  console.log('开始保存配置:', config)
   if (!hasPermission('AUTH-edit')) {
     ElMessage.warning('您没有编辑权限')
     return
@@ -721,7 +695,6 @@ const saveSingleConfig = async (config: SystemConfigResponse & { newValue?: any,
       config_key: config.config_key,
       config_value: String(config.newValue)
     }
-    // console.log('发送更新数据:', updateData);
     
     await systemAPI.config.updateSystemConfig(updateData)
     ElMessage.success(`配置 ${config.config_key} 更新成功`)
@@ -729,7 +702,6 @@ const saveSingleConfig = async (config: SystemConfigResponse & { newValue?: any,
     // 更新原始值
     config.config_value = String(config.newValue)
   } catch (err: any) {
-    console.error('保存配置失败:', err)
     ElMessage.error(err.response?.data?.detail || '保存配置失败')
   } finally {
     config.saving = false
@@ -770,7 +742,6 @@ const saveAllConfigs = async () => {
     // 刷新配置列表
     await loadConfigs()
   } catch (err: any) {
-    console.error('保存配置失败:', err)
     ElMessage.error(err.response?.data?.detail || '保存配置失败')
   } finally {
     saving.value = false

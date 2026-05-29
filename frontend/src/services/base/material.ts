@@ -10,7 +10,9 @@ import type {
   BatchMaterialDelete,
   MaterialBatchImportResult,
   EquipmentOptionsResponse,
-  MajorOptionsResponse
+  MajorOptionsResponse,
+  MaterialLocateParams,
+  MaterialLocateResult
 } from '../types/material';
 
 /**
@@ -148,6 +150,14 @@ export const materialAPI = {
    */
   async getMajorOptions(): Promise<MajorOptionsResponse> {
     const response = await api.get<MajorOptionsResponse>('/materials/major-options');
+    return response.data;
+  },
+
+  /**
+   * 器材快速定位（根据器材编码精确匹配）
+   */
+  async locate(params: MaterialLocateParams): Promise<MaterialLocateResult> {
+    const response = await api.get<MaterialLocateResult>('/materials/locate', { params });
     return response.data;
   }
 };

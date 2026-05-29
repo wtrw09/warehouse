@@ -823,7 +823,6 @@ watch([() => props.editId, () => props.readonly], ([newEditId, newReadonly]) => 
     // 新建模式
     isEdit.value = false;
     orderId.value = null;
-    console.log('进入新建模式，重置表单');
     resetForm();
   }
 }, { immediate: true });
@@ -927,7 +926,6 @@ const updateStockOnRemove = (batchId: number, quantity: number) => {
 // 检查库存是否充足
 const checkStockSufficient = (batchId: number, quantity: number, currentIndex?: number): boolean => {
   const stockInfo = stockManagement.value.get(batchId);
-  console.log('库存信息:', batchId, stockInfo?.available_quantity, '原始库存:', stockInfo?.original_quantity, '输入数量', quantity);
   if (!stockInfo) {
     return false;
   }
@@ -1077,7 +1075,6 @@ const getCustomers = async (searchKeyword?: string, append: boolean = false) => 
   } catch (error: any) {
     // 显示具体的错误原因
     const errorMessage = error.response?.data?.message || error.message || '获取客户列表失败';
-    console.error(`获取客户列表失败: ${errorMessage}`);
   }
 };
 
@@ -1141,7 +1138,6 @@ const loadMoreCustomers = async () => {
       scrollContainer.scrollTop = scrollTopBefore + heightDiff;
     }
   } catch (error) {
-    console.error('加载更多客户失败:', error);
     // 加载失败，回退页码
     customerPagination.currentPage--;
   } finally {

@@ -516,7 +516,6 @@ def initialize_sub_majors(db: Session):
                 sub_major_code=sub_major_code,
                 description=description if description else None,
                 major_id=major_id,
-                major_name=major_name,  # 通过major_id自动获取
                 reserved=None,  # 保留字段，不要求输入
                 creator="system",
                 create_time=current_time,
@@ -547,7 +546,13 @@ def initialize_sub_majors(db: Session):
     # 按一级专业名称分组显示
     major_groups = {}
     for sub_major in total_sub_majors:
-        major_name = sub_major.major_name or "未分类"
+        # 通过major_id获取major_name
+        major_name = "未分类"
+        if sub_major.major_id:
+            major = db.exec(select(Major).where(Major.id == sub_major.major_id)).first()
+            if major:
+                major_name = major.major_name
+        
         if major_name not in major_groups:
             major_groups[major_name] = []
         major_groups[major_name].append(sub_major)

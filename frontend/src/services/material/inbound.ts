@@ -1,4 +1,4 @@
-import api from '../base';
+import api, { getServerBaseURL } from '../base';
 import type {
   InboundOrderCreate,
   InboundOrderDetailResponseType,
@@ -168,7 +168,7 @@ export const inboundOrderAPI = {
     * 打印入库单
     */
    printInboundOrder: async (orderNumber: string): Promise<Blob> => {
-     const response = await api.get(`/inbound-orders/pdf/${orderNumber}`, {
+     const response = await api.get(`/inbound-orders/download/${orderNumber}`, {
        responseType: 'blob'
      });
      return response.data;
@@ -178,10 +178,98 @@ export const inboundOrderAPI = {
     * 打印器材分类账页
     */
    printMaterialLedger: async (orderNumber: string): Promise<Blob> => {
-     const response = await api.get(`/material-ledger/pdf/${orderNumber}`, {
+     const response = await api.get(`/material-ledger/download/${orderNumber}`, {
        responseType: 'blob'
      });
      return response.data;
+   },
+
+   /**
+    * 批量生成器材分类账页（SSE流式推送进度）
+    * 替代串行循环调用 printMaterialLedger，避免 10秒 超时
+    */
+   batchPrintMaterialLedgerStream: async (
+     orderNumbers: string[],
+     onProgress: (data: { type: string; order_number: string; current: number; total: number; download_url?: string; error?: string; file_elapsed?: number; elapsed_seconds?: number }) => void,
+     onComplete: (result: { total: number; success: number; failed: number; total_elapsed?: number }) => void,
+     onError: (error: Error) => void
+   ) => {
+     // 动态超时：每个账页预留30秒，至少60秒
+     const timeoutMs = Math.max(60000, orderNumbers.length * 30000);
+     const controller = new AbortController();
+     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+     try {
+       const baseURL = getServerBaseURL();
+       const token = localStorage.getItem('token');
+
+       const response = await fetch(`${baseURL}/material-ledger/batch-progress`, {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${token}`
+         },
+         body: JSON.stringify({ order_numbers: orderNumbers }),
+         signal: controller.signal
+       });
+
+       clearTimeout(timeoutId);
+
+       if (!response.ok) {
+         const errorData = await response.json().catch(() => ({}));
+         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+       }
+
+       const reader = response.body!.getReader();
+       const decoder = new TextDecoder();
+       let buffer = '';
+
+       while (true) {
+         const { done, value } = await reader.read();
+         if (done) break;
+
+         buffer += decoder.decode(value, { stream: true });
+
+         // SSE 事件以双换行符分割
+         const parts = buffer.split('\n\n');
+         buffer = parts.pop() || '';
+
+         for (const part of parts) {
+           const lines = part.split('\n');
+           let currentEvent = '';
+           let dataStr = '';
+
+           for (const line of lines) {
+             if (line.startsWith('event: ')) {
+               currentEvent = line.substring(7).trim();
+             } else if (line.startsWith('data: ')) {
+               dataStr = line.substring(6);
+             }
+           }
+
+           if (!currentEvent || !dataStr) continue;
+
+           try {
+             const data = JSON.parse(dataStr);
+             if (currentEvent === 'progress') {
+               onProgress(data);
+             } else if (currentEvent === 'complete') {
+               onComplete(data);
+             }
+             // heartbeat 事件忽略
+           } catch (e) {
+             console.warn('解析SSE数据失败:', dataStr);
+           }
+         }
+       }
+     } catch (error: any) {
+       clearTimeout(timeoutId);
+       if (error.name === 'AbortError') {
+         onError(new Error('连接超时，请重试'));
+       } else {
+         onError(error);
+       }
+     }
    },
 
    /**

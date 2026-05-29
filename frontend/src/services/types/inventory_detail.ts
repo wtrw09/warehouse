@@ -147,3 +147,19 @@ export interface SortOption {
   value: string;
   label: string;
 }
+
+// 库存明细定位参数
+export interface InventoryDetailLocateParams {
+  batch_number?: string;  // 批次编号(可选,为空则返回第1页)
+  page_size?: number;      // 每页大小,用于计算页码
+}
+
+// 库存明细定位结果
+export interface InventoryDetailLocateResult {
+  found: boolean;                   // 是否找到匹配的库存明细
+  detail_id: number | null;         // 库存明细ID(用于定位和高亮)
+  material_name: string | null;     // 器材名称(用于显示提示)
+  position: number | null;          // 明细在detail_id升序列表中的位置(从1开始)
+  target_page: number | null;       // 明细所在页码
+  page_size: number;                // 用于计算页码的每页大小
+}

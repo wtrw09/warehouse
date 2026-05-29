@@ -347,7 +347,7 @@ const hasPermission = (permission: string): boolean => {
         const parsedUserData = JSON.parse(userData);
         return parsedUserData.permissions?.includes(permission) || false;
       } catch (err) {
-        console.error('解析用户数据失败:', err);
+        // 解析失败
       }
     }
     return false;
@@ -397,9 +397,6 @@ const loadLoginRecords = async () => {
   
   try {
     const response = await loginRecordAPI.getLoginRecords(searchParams.value);
-    console.log('API响应数据:', response);
-    console.log('登录记录数据:', response.records);
-    console.log('数据条数:', response.records?.length || 0);
     
     loginRecords.value = response.records || [];
     
@@ -411,14 +408,11 @@ const loadLoginRecords = async () => {
     };
     
   } catch (err: any) {
-    console.error('加载登录记录失败:', err);
-    
     if (err.response?.status === 403) {
       error.value = '权限不足，无法访问登录记录查询功能';
       ElMessage.error('权限不足，请与管理员联系');
     } else if (err.response?.status === 401) {
       error.value = '身份验证失败，请重新登录';
-      console.error('认证失败:', err.response?.data?.detail || '请重新登录');
     } else {
       error.value = err.response?.data?.detail || '加载登录记录失败';
       ElMessage.error(error.value || '加载登录记录失败');
@@ -435,7 +429,6 @@ const loadStatistics = async () => {
   try {
     statistics.value = await loginRecordAPI.getLoginStatistics(90);
   } catch (err: any) {
-    console.error('加载统计信息失败:', err);
     ElMessage.error('加载统计信息失败');
   } finally {
     statisticsLoading.value = false;

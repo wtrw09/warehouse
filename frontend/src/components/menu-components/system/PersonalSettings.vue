@@ -307,7 +307,6 @@ const formatDate = (dateString: string) => {
   try {
     return new Date(dateString).toLocaleString('zh-CN')
   } catch (error) {
-    console.error('日期格式化失败:', error)
     return dateString || '未知时间'
   }
 }
@@ -337,8 +336,7 @@ const fetchUserInfo = async () => {
       }
     }
   } catch (error) {
-    console.error('获取用户信息失败:', error)
-    // 如果store中已有数据，则不显示错误提示
+    // 获取用户信息失败
     if (!userStore.user) {
       ElMessage.error('获取用户信息失败')
     }
@@ -370,7 +368,6 @@ const handleChangePassword = async () => {
     passwordDialog.value.visible = false
     resetForm()
   } catch (error: any) {
-    console.error('修改密码失败:', error)
     ElMessage.error(error.response?.data?.detail || '修改密码失败')
   } finally {
     passwordDialog.value.loading = false
@@ -452,7 +449,6 @@ const loadMyLoginRecords = async () => {
     };
     
   } catch (error: any) {
-    console.error('获取登录记录失败:', error);
     loginRecordError.value = error.response?.data?.detail || '获取登录记录失败';
     ElMessage.error(loginRecordError.value || '获取登录记录失败');
   } finally {
@@ -502,7 +498,7 @@ const handleViewMyLoginRecords = async () => {
         const parsedUserData = JSON.parse(userData);
         hasAuthOwnPermission = parsedUserData.permissions?.includes('AUTH-own') || false;
       } catch (err) {
-        console.error('解析用户数据失败:', err);
+        // 解析失败
       }
     }
     
@@ -527,7 +523,6 @@ const handleViewMyLoginRecords = async () => {
     await loadMyLoginRecords();
     
   } catch (error) {
-    console.error('查看登录记录失败:', error);
     ElMessage.error('操作失败，请稍后重试');
   }
 };

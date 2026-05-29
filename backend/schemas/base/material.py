@@ -124,3 +124,18 @@ class EquipmentOption(BaseModel):
 class EquipmentOptionsResponse(BaseModel):
     data: List[EquipmentOption]
     total: int
+
+# 器材定位查询参数
+class MaterialLocateParams(BaseModel):
+    material_code: str = Field(..., description="器材编码(仅支持精确匹配)")
+    page_size: int = Field(10, ge=1, le=100, description="每页大小,用于计算页码")
+
+# 器材定位结果
+class MaterialLocateResult(BaseModel):
+    found: bool = Field(..., description="是否找到匹配器材")
+    material: Optional[MaterialResponse] = Field(None, description="匹配的器材详情")
+    position: Optional[int] = Field(None, description="器材在ID升序列表中的位置(从1开始)")
+    target_page: Optional[int] = Field(None, description="器材所在页码")
+    page_size: int = Field(10, description="用于计算页码的每页大小")
+    total_before: Optional[int] = Field(None, description="该器材之前的器材数量(ID更小的器材数)")
+    suggestions: List[MaterialResponse] = Field(default_factory=list, description="保留字段(始终为空列表)")

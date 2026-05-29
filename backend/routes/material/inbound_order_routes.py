@@ -1357,11 +1357,11 @@ async def get_inbound_order_suppliers(
         raise HTTPException(status_code=500, detail=f"获取供应商列表失败: {str(e)}")
 
 
-@inbound_orders_router.get("/pdf/{order_number}")
+@inbound_orders_router.get("/download/{order_number}")
 async def generate_inbound_order_pdf_route(
     order_number: str,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/inbound-orders/pdf"))
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/inbound-orders/download"))
 ):
     """生成入库单PDF文件"""
     

@@ -18,7 +18,8 @@ import type {
   OutboundOrderItemUpdate,
   BatchDeleteResponseType,
   OrderNumberGenerateResponseType,
-  CustomerListResponseType
+  CustomerListResponseType,
+  UpdateRedundantFieldsResponseType
 } from '../types/outbound';
 
 /**
@@ -165,7 +166,7 @@ export const outboundOrderAPI = {
    * 生成出库单PDF文件
    */
   generateOutboundOrderPDF: async (orderNumber: string): Promise<Blob> => {
-    const response = await api.get(`/outbound-orders/pdf/${orderNumber}`, {
+    const response = await api.get(`/outbound-orders/download/${orderNumber}`, {
       responseType: 'blob'
     });
     return response.data;
@@ -178,6 +179,14 @@ export const outboundOrderAPI = {
     const response = await api.get(`/outbound-orders/excel/${orderNumber}`, {
       responseType: 'blob'
     });
+    return response.data;
+  },
+
+  /**
+   * 根据批次号从入库明细表更新出库明细中的冗余字段
+   */
+  updateRedundantFields: async (orderId: number): Promise<UpdateRedundantFieldsResponseType> => {
+    const response = await api.put<UpdateRedundantFieldsResponseType>(`/outbound-orders/${orderId}/update-redundant-fields`);
     return response.data;
   }
 };

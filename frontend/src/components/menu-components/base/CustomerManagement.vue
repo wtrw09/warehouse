@@ -279,13 +279,6 @@
                 :rows="3"
               />
             </el-form-item>
-            <el-form-item label="联系方式" prop="customer_contact" class="base-form-label">
-              <el-input 
-                v-model="formData.customer_contact" 
-                placeholder="请输入联系方式" 
-                maxlength="20"
-              />
-            </el-form-item>
             <el-form-item label="负责人" prop="customer_manager" class="base-form-label">
               <el-input 
                 v-model="formData.customer_manager" 
@@ -293,6 +286,14 @@
                 maxlength="50"
               />
             </el-form-item>
+            <el-form-item label="联系方式" prop="customer_contact" class="base-form-label">
+              <el-input 
+                v-model="formData.customer_contact" 
+                placeholder="请输入联系方式" 
+                maxlength="20"
+              />
+            </el-form-item>
+
           </el-form>
         </div>
         <template #footer>
@@ -328,7 +329,7 @@
 <script setup lang="ts">
 import { inject, ref, Ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Refresh, Search, Edit, Delete, List, Upload, Download } from '@element-plus/icons-vue'
+import { Plus, Refresh, Edit, Delete, List, Upload, Download } from '@element-plus/icons-vue'
 import { customerAPI } from '@/services/base/customer'
 import type { CustomerResponse, CustomerCreate, CustomerUpdate, CustomerStatistics, CustomerQueryParams } from '@/services/types/customer'
 import type { BatchImportResult } from '@/services/types/import'
@@ -411,7 +412,6 @@ const formData = reactive({
 
 // 导入相关状态
 const importDialogVisible = ref(false)
-const importDialogRef = ref<InstanceType<typeof UniversalImport>>()
 
 // 临时保存的数据
 const tempFormData = ref<typeof formData | null>(null)

@@ -533,7 +533,6 @@ const currentUser = inject<Ref<UserInfo | null>>('currentUser') || ref<UserInfo 
  * @returns boolean - 用户是否拥有该权限
  */
 const hasPermission = (permission: string): boolean => {
-  console.log('当前用户:', currentUser.value);
   if (!currentUser.value || !currentUser.value.permissions) {
     // 如果没有用户信息或权限信息，尝试从localStorage获取
     const userData = localStorage.getItem('userData');
@@ -542,7 +541,7 @@ const hasPermission = (permission: string): boolean => {
         const parsedUserData = JSON.parse(userData);
         return parsedUserData.permissions?.includes(permission) || false;
       } catch (err) {
-        console.error('解析用户数据失败:', err);
+        // 解析失败
       }
     }
     return false;
@@ -557,7 +556,6 @@ const hasAuthReadPermission = computed(() => {
 
 // 计算属性：检查是否有AUTH-edit权限
 const hasAuthEditPermission = computed(() => {
-  console.log('用户权限:', currentUser.value?.permissions);
   return hasPermission('AUTH-edit');
 });
 
@@ -616,15 +614,11 @@ const loadUsers = async () => {
     };
     
   } catch (err: any) {
-    console.error('加载用户列表失败:', err);
-    
     if (err.response?.status === 403) {
       error.value = '权限不足，无法访问用户管理功能';
       ElMessage.error('权限不足，请与管理员联系');
     } else if (err.response?.status === 401) {
       error.value = '身份验证失败，请重新登录';
-      // 全局拦截器已经处理了401错误，这里只记录错误不重复显示
-      console.error('认证失败:', err.response?.data?.detail || '请重新登录');
     } else {
       error.value = err.response?.data?.detail || '加载用户列表失败';
       ElMessage.error(error.value || '加载用户列表失败');
@@ -642,7 +636,6 @@ const loadRoles = async () => {
     const response = await roleAPI.getRoles({ page: 1, page_size: 100 });
     availableRoles.value = response.data || [];
   } catch (err: any) {
-    console.error('加载角色列表失败:', err);
     ElMessage.error('加载角色列表失败');
   } finally {
     rolesLoading.value = false;
@@ -654,7 +647,7 @@ const loadStatistics = async () => {
   try {
     statistics.value = await userAPI.getStatistics();
   } catch (err: any) {
-    console.error('加载统计信息失败:', err);
+    // 加载统计信息失败
   }
 };
 
@@ -801,8 +794,6 @@ const handleDelete = async (user: UserManagementResponse) => {
       return;
     }
     
-    console.error('删除用户失败:', err);
-    
     if (err.response?.status === 409) {
       ElMessage.error('不能删除最后一个管理员用户');
     } else {
@@ -851,8 +842,6 @@ const handleSaveUser = async () => {
     loadUsers();
     loadStatistics();
   } catch (err: any) {
-    console.error('保存用户失败:', err);
-    
     if (err.response?.status === 400 || err.response?.status === 422) {
       // 处理后端验证错误，显示具体的错误信息
       const errorData = err.response?.data;
@@ -899,8 +888,6 @@ const handleSavePassword = async () => {
     ElMessage.success('密码重置成功');
     passwordDialog.value.visible = false;
   } catch (err: any) {
-    console.error('密码重置失败:', err);
-    
     if (err.response?.status === 400) {
       ElMessage.error('新密码与当前密码相同，请选择一个不同的密码');
     } else {
@@ -964,7 +951,6 @@ const handleSaveBatch = async () => {
     loadUsers();
     loadStatistics();
   } catch (err: any) {
-    console.error('批量操作失败:', err);
     ElMessage.error(err.response?.data?.detail || '批量操作失败');
   } finally {
     batchDialog.value.loading = false;
@@ -980,7 +966,7 @@ onMounted(async () => {
       try {
         currentUser.value = JSON.parse(userData);
       } catch (err) {
-        console.error('解析用户数据失败:', err);
+        // 解析失败
       }
     }
   }

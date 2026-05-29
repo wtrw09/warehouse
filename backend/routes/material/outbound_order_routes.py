@@ -16,6 +16,7 @@ from schemas.material import (
 )
 from models.material.outbound_order import OutboundOrder
 from models.material.outbound_order_item import OutboundOrderItem
+from models.material.inbound_order_item import InboundOrderItem
 from models.base.customer import Customer
 from models.material.material import Material
 from models.base.bin import Bin
@@ -620,11 +621,11 @@ async def get_outbound_order_customers(
         raise HTTPException(status_code=500, detail=f"获取客户列表失败: {str(e)}")
 
 
-@outbound_orders_router.get("/pdf/{order_number}")
+@outbound_orders_router.get("/download/{order_number}")
 async def generate_outbound_order_pdf_route(
     order_number: str,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/pdf"))
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/download"))
 ):
     """生成出库单PDF文件"""
     
@@ -1312,5 +1313,95 @@ async def batch_delete_outbound_order_items(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"批量删除出库明细失败: {str(e)}")
+
+
+@outbound_orders_router.put("/{order_id}/update-redundant-fields")
+async def update_outbound_redundant_fields(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/outbound-orders/update-redundant-fields"))
+):
+    """根据批次号从入库明细表更新出库明细中的冗余字段"""
+    
+    # 查询出库单
+    order = db.get(OutboundOrder, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="出库单不存在")
+    
+    # 查询该出库单的所有明细项
+    outbound_items = db.exec(
+        select(OutboundOrderItem).where(OutboundOrderItem.order_id == order_id)
+    ).all()
+    
+    if not outbound_items:
+        raise HTTPException(status_code=404, detail="出库单没有明细项")
+    
+    # 开始事务
+    try:
+        updated_count = 0
+        not_found_batches = []
+        
+        for outbound_item in outbound_items:
+            # 根据batch_id从入库明细表中查找对应记录
+            inbound_item = db.exec(
+                select(InboundOrderItem).where(InboundOrderItem.batch_id == outbound_item.batch_id)
+            ).first()
+            
+            if inbound_item:
+                # 比较字段值，只有不一样时才更新
+                has_changes = False
+                
+                if outbound_item.material_code != inbound_item.material_code:
+                    outbound_item.material_code = inbound_item.material_code
+                    has_changes = True
+                
+                if outbound_item.material_name != inbound_item.material_name:
+                    outbound_item.material_name = inbound_item.material_name
+                    has_changes = True
+                
+                if outbound_item.material_specification != inbound_item.material_specification:
+                    outbound_item.material_specification = inbound_item.material_specification
+                    has_changes = True
+                
+                if outbound_item.unit_price != inbound_item.unit_price:
+                    outbound_item.unit_price = inbound_item.unit_price
+                    has_changes = True
+                
+                if outbound_item.unit != inbound_item.unit:
+                    outbound_item.unit = inbound_item.unit
+                    has_changes = True
+                
+                # 只有有变化时才添加到数据库更新队列并计数
+                if has_changes:
+                    db.add(outbound_item)
+                    updated_count += 1
+            else:
+                # 记录找不到对应入库明细的批次号
+                not_found_batches.append(outbound_item.batch_id)
+        
+        db.commit()
+        
+        # 构建响应消息
+        if updated_count > 0:
+            message = f"成功更新 {updated_count} 条出库明细"
+            if not_found_batches:
+                message += f"，以下批次ID未找到对应的入库明细: {not_found_batches}"
+        else:
+            if not_found_batches:
+                message = f"已是最新数据，无需更新！但以下批次ID未找到对应的入库明细: {not_found_batches}"
+            else:
+                message = "已是最新数据，无需更新！"
+        
+        return {
+            "success": True,
+            "updated_count": updated_count,
+            "total_items": len(outbound_items),
+            "not_found_batches": not_found_batches,
+            "message": message
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"更新冗余字段失败: {str(e)}")
 
 

@@ -58,7 +58,7 @@ const saveFormData = () => {
         // 注意：出于安全考虑，不保存密码
       }));
     } catch (err) {
-      console.warn('保存表单数据失败:', err);
+      // 忽略错误
     }
   }
 };
@@ -75,7 +75,7 @@ const restoreFormData = () => {
         }
       }
     } catch (err) {
-      console.warn('恢复表单数据失败:', err);
+      // 忽略错误
     }
   }
 };
@@ -123,15 +123,8 @@ const handleLogin = async () => {
     // 使用消息组件防护，避免null值
     ElMessage.error(errorMessage || '登录失败，请重试');
     
-    // 保留表单数据，不进行任何清空操作
-    console.log('登录失败，保留表单数据:', {
-      username: formData.value.username,
-      hasPassword: !!formData.value.password
-    });
-    
     // 确保表单数据不被意外修改
     if (!formData.value.username || !formData.value.password) {
-      console.warn('检测到表单数据可能被清空，尝试恢复...');
       restoreFormData();
     }
   } finally {

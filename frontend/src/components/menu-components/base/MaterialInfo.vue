@@ -282,7 +282,15 @@
                 </el-form-item>
                 
                 <el-form-item label="器材规格">
-                  <el-input v-model="form.material_specification" placeholder="请输入器材规格" />
+                  <el-input 
+                    v-model="form.material_specification" 
+                    placeholder="请输入器材规格" 
+                    @focus="() => {
+                        showMaterialCodePanel = false;
+                        showEquipmentPanel = false;
+                        showMaterialSearchPanel = true;
+                      }"
+                  />
                 </el-form-item>
                 
                 <el-form-item label="器材描述">
@@ -804,8 +812,11 @@ const handleMaterialCodeFocus = async () => {
 watch(() => form.material_name, (newValue, oldValue) => {
   // 只在新建模式下自动填充和搜索
   if (dialogTitle.value === '新增器材' && newValue && newValue !== oldValue) {
+    // 组合名称和规格进行搜索
+    const searchText = [newValue, form.material_specification].filter(Boolean).join(' ');
+    
     // 填充到器材搜索框
-    materialSearchParams.search = newValue;
+    materialSearchParams.search = searchText;
     // 填充到专业搜索框
     materialCodeSearchParams.search = newValue;
     
@@ -821,6 +832,23 @@ watch(() => form.material_name, (newValue, oldValue) => {
       handleMaterialCodeSearch();
     }
     // 不再自动跳转到器材编码推荐面板，保持当前面板状态
+  }
+});
+
+// 监听器材规格变化，自动触发搜索
+watch(() => form.material_specification, (newValue, oldValue) => {
+  // 只在新建模式下自动搜索
+  if (dialogTitle.value === '新增器材' && newValue !== oldValue) {
+    // 组合名称和规格进行搜索
+    const searchText = [form.material_name, newValue].filter(Boolean).join(' ');
+    
+    // 更新器材搜索框
+    materialSearchParams.search = searchText;
+    
+    // 如果当前显示的是器材搜索面板，则自动执行搜索
+    if (showMaterialSearchPanel.value) {
+      handleMaterialSearch();
+    }
   }
 });
 
@@ -1306,7 +1334,8 @@ const handleSubmit = async () => {
       updateData.material_wdh = form.material_wdh;
       updateData.safety_stock = form.safety_stock;
       
-      // 始终包含equipment_id字段，即使为undefined或null
+      // 包含major_id和equipment_id字段，即使为undefined或null
+      updateData.major_id = form.major_id;
       updateData.equipment_id = form.equipment_id;
       
       console.log('提交的更新数据:', updateData);
@@ -1467,6 +1496,9 @@ const selectMaterialCodeLevel = (level: MajorResponse | SubMajorResponse) => {
     selectedPrimaryMajor.value = level.major_code;
     selectedSecondaryMajor.value = '';
     
+    // 自动填充一级专业到所属专业字段
+    form.major_id = level.id;
+    
     // 触发一级专业变化处理
     handlePrimaryMajorChange();
   } else if ('sub_major_code' in level) {
@@ -1475,6 +1507,9 @@ const selectMaterialCodeLevel = (level: MajorResponse | SubMajorResponse) => {
     if (parentMajor) {
       selectedPrimaryMajor.value = parentMajor.major_code;
       selectedSecondaryMajor.value = level.sub_major_code;
+      
+      // 自动填充一级专业到所属专业字段
+      form.major_id = parentMajor.id;
       
       // 直接生成推荐编码，不触发一级专业变化处理（避免清空二级专业选择）
       generateRecommendedMaterialCode();

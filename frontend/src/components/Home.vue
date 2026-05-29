@@ -148,27 +148,18 @@ provide('currentUser', currentUser);
 
 // 计算属性：过滤显示的顶级菜单项
 const visibleMenus = computed(() => {
-  console.log('当前用户权限:', currentUser.value?.permissions);
-  console.log('当前用户信息:', currentUser.value);
-  
   // 如果用户未登录或没有权限信息，返回空数组
   if (!currentUser.value) {
-    console.log('用户未登录');
     return [];
   }
   
   // 检查权限信息是否存在且为数组
   if (!currentUser.value.permissions || !Array.isArray(currentUser.value.permissions)) {
-    console.log('用户权限信息不存在或格式不正确');
-    console.log('权限信息类型:', typeof currentUser.value.permissions);
-    console.log('权限信息值:', currentUser.value.permissions);
     return [];
   }
   
   // 过滤菜单项，只显示用户有权限访问的菜单
   const filteredMenus = getVisibleMenus(currentUser.value.permissions);
-  
-  console.log('过滤后的菜单:', filteredMenus);
   return filteredMenus;
 });
 
@@ -183,8 +174,6 @@ const checkServerStatus = async () => {
     // 检查是否是网络连接错误或服务器不可用错误
     if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || 
         error.message?.includes('Network Error') || error.response?.status >= 500) {
-      console.error('服务器连接异常:', error.message);
-      
       // 清除token
       localStorage.removeItem('token');
       
@@ -284,8 +273,6 @@ const toggleMenuCollapse = () => {
 
 // 处理菜单点击
 const handleMenuClick = (index) => {
-  console.log('点击菜单项:', index);
-  
   // 处理二级菜单（包含'-'的索引）或一级叶子菜单（如'home'）
   if (index.includes('-') || index === 'home') {
     activeMenuIndex.value = index;

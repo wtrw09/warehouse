@@ -163,13 +163,19 @@ class InboundOrderPDF(PDFGenerator):
         
         self.set_font_by_name(self.default_fonts['header'], 10)
         
-        # 订单基本信息行 - 增加列宽避免重叠
-        col_widths = [60, 80, 40]
+        # 订单基本信息行 - 调整列宽，供应商使用剩余空间
+        col_widths = [50, 40, 80]  # 入库单号、入库日期、供应商
+        
+        # 格式化入库日期，确保固定格式
+        inbound_date = self.order_data.get('inbound_date', '')
+        if inbound_date and len(inbound_date) > 10:
+            # 如果日期包含时间，只保留日期部分
+            inbound_date = inbound_date[:10]
         
         order_info = [
-            f"入库单号：{self.order_data.get('order_number', '')}",
-            f"供应商：{self.order_data.get('supplier', '')}",
-            f"入库日期：{self.order_data.get('inbound_date', '')}"
+            f"入库单号:{self.order_data.get('order_number', '')}",
+            f"入库日期:{inbound_date}",
+            f"供应商:{self.order_data.get('supplier', '')}"
         ]
         
         # 居中对齐
@@ -177,9 +183,35 @@ class InboundOrderPDF(PDFGenerator):
         x_start = (210 - total_width) / 2  # A4纸宽度210mm
         self.set_x(x_start)
         
+        # 处理每个字段，供应商字段支持换行
+        max_lines = 1  # 记录最大行数
+        saved_y = self.get_y()  # 保存起始Y坐标
+        
         for i, info in enumerate(order_info):
-            self.cell(col_widths[i], 8, info, 0, 0, 'L')
-        self.ln(10)
+            if i == 2:  # 供应商字段
+                supplier_text = self.order_data.get('supplier', '')
+                text_width = self.get_string_width(f"供应商:{supplier_text}")
+                cell_width = col_widths[i] - 2
+                
+                # 如果供应商名称过长，使用multi_cell自动换行
+                if text_width > cell_width:
+                    current_x = self.get_x()
+                    current_y = self.get_y()
+                    self.multi_cell(col_widths[i], 8, info, 0, 'L')
+                    # 计算实际使用的行数
+                    end_y = self.get_y()
+                    lines_used = int((end_y - current_y) / 8)
+                    max_lines = max(max_lines, lines_used)
+                    # 移动到下一个位置（处理换行后的位置）
+                    self.set_xy(current_x + col_widths[i], current_y)
+                else:
+                    self.cell(col_widths[i], 8, info, 0, 0, 'L')
+            else:
+                self.cell(col_widths[i], 8, info, 0, 0, 'L')
+        
+        # 根据最大行数调整下移距离
+        self.set_y(saved_y + max_lines * 8)
+        self.ln(0)  # 减少额外间距
     
     def _add_table_header(self) -> None:
         """添加表格表头"""
@@ -925,13 +957,19 @@ class OutboundOrderPDF(PDFGenerator):
         
         self.set_font_by_name(self.default_fonts['header'], 10)
         
-        # 订单基本信息行 - 增加列宽避免重叠
-        col_widths = [60, 80, 40]
+        # 订单基本信息行 - 调整列宽，收货单位使用剩余空间
+        col_widths = [50, 50, 70]  # 出库单号、出库日期、收货单位
+        
+        # 格式化出库日期，确保固定格式
+        outbound_date = self.order_data.get('outbound_date', '')
+        if outbound_date and len(outbound_date) > 10:
+            # 如果日期包含时间，只保留日期部分
+            outbound_date = outbound_date[:10]
         
         order_info = [
-            f"出库单号：{self.order_data.get('order_number', '')}",
-            f"收货单位：{self.order_data.get('customer_name', '')}",
-            f"出库日期：{self.order_data.get('outbound_date', '')}"
+            f"出库单号:{self.order_data.get('order_number', '')}",
+            f"出库日期:{outbound_date}",
+            f"收货单位:{self.order_data.get('customer_name', '')}"
         ]
         
         # 居中对齐
@@ -939,9 +977,35 @@ class OutboundOrderPDF(PDFGenerator):
         x_start = (210 - total_width) / 2  # A4纸宽度210mm
         self.set_x(x_start)
         
+        # 处理每个字段，收货单位字段支持换行
+        max_lines = 1  # 记录最大行数
+        saved_y = self.get_y()  # 保存起始Y坐标
+        
         for i, info in enumerate(order_info):
-            self.cell(col_widths[i], 8, info, 0, 0, 'L')
-        self.ln(10)
+            if i == 2:  # 收货单位字段
+                customer_text = self.order_data.get('customer_name', '')
+                text_width = self.get_string_width(f"收货单位:{customer_text}")
+                cell_width = col_widths[i] - 2
+                
+                # 如果收货单位名称过长，使用multi_cell自动换行
+                if text_width > cell_width:
+                    current_x = self.get_x()
+                    current_y = self.get_y()
+                    self.multi_cell(col_widths[i], 8, info, 0, 'L')
+                    # 计算实际使用的行数
+                    end_y = self.get_y()
+                    lines_used = int((end_y - current_y) / 8)
+                    max_lines = max(max_lines, lines_used)
+                    # 移动到下一个位置（处理换行后的位置）
+                    self.set_xy(current_x + col_widths[i], current_y)
+                else:
+                    self.cell(col_widths[i], 8, info, 0, 0, 'L')
+            else:
+                self.cell(col_widths[i], 8, info, 0, 0, 'L')
+        
+        # 根据最大行数调整下移距离
+        self.set_y(saved_y + max_lines * 8)
+        self.ln(5)  # 减少额外间距
     
     def _add_table_header(self) -> None:
         """添加表格表头"""

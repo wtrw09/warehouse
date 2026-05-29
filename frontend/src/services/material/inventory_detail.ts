@@ -5,7 +5,9 @@ import type {
   InventoryMajorOptionsResponse,
   InventoryEquipmentOptionsResponse,
   InventoryDetailsQueryParams,
-  InventoryDetailsStatistics
+  InventoryDetailsStatistics,
+  InventoryDetailLocateParams,
+  InventoryDetailLocateResult
 } from '../types/inventory_detail';
 import type {
   BatchCodeGenerateRequest,
@@ -98,6 +100,14 @@ export const inventoryDetailAPI = {
    */
   generateBatchCode: async (request: BatchCodeGenerateRequest): Promise<BatchCodeGenerateResponse> => {
     const response = await api.post<BatchCodeGenerateResponse>('/inventory-details/generate-batch-code', request);
+    return response.data;
+  },
+
+  /**
+   * 库存明细快速定位(通过批次编号)
+   */
+  locate: async (params: InventoryDetailLocateParams): Promise<InventoryDetailLocateResult> => {
+    const response = await api.get<InventoryDetailLocateResult>('/inventory-details/locate', { params });
     return response.data;
   }
 };

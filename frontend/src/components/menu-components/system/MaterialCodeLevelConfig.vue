@@ -281,11 +281,8 @@ const handleModifyMajorInfo = async () => {
   try {
     const menuStore = useMenuStore();
     
-    console.log('开始跳转到专业信息管理页面...');
-    
     // 1. 先展开父级菜单"1"（基础数据）
     menuStore.openMenu('1');
-    console.log('已展开父菜单 1');
     
     // 2. 通过事件总线或直接操作来触发菜单切换
     // 使用 nextTick 确保菜单状态更新后再跳转
@@ -303,13 +300,10 @@ const handleModifyMajorInfo = async () => {
       query: { menu: '1-5' } 
     });
     
-    console.log('路由跳转完成');
-    
     // 4. 显示成功提示
     ElMessage.success('已跳转到专业信息管理页面');
     
   } catch (error) {
-    console.error('跳转失败:', error);
     ElMessage.error('页面跳转失败');
   }
 };
@@ -398,9 +392,7 @@ const fetchData = async () => {
   try {
     const response = await materialCodeLevelAPI.getMaterialCodeLevels();
     data.value = response || [];
-    console.log('获取到的数据:', data.value); // 添加调试信息
   } catch (err) {
-    console.error('获取器材编码分类层级数据失败:', err);
     error.value = err.response?.data?.detail || '获取数据失败';
     ElMessage.error(error.value);
   } finally {

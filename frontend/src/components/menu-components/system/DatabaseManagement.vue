@@ -355,7 +355,6 @@ const hasBackupReadPermission = computed(() => {
   if (!currentUser.value || !currentUser.value.permissions) {
     return false;
   }
-  console.log("当前用户权限",currentUser.value.permissions);
   return currentUser.value.permissions.includes('SYSTEM-read');
 });
 
@@ -432,14 +431,11 @@ const loadBackups = async () => {
     }));
     
   } catch (err: any) {
-    console.error('加载备份列表失败:', err);
-    
     if (err.response?.status === 403) {
       error.value = '权限不足，无法访问数据库管理功能';
       ElMessage.error('权限不足，请与管理员联系');
     } else if (err.response?.status === 401) {
       error.value = '身份验证失败，请重新登录';
-      console.error('认证失败:', err.response?.data?.detail || '请重新登录');
     } else {
       error.value = err.response?.data?.detail || '加载备份列表失败';
       ElMessage.error(error.value || '加载备份列表失败');
@@ -496,7 +492,6 @@ const handleCreateBackup = async () => {
     loadBackups();
     loadStatistics();
   } catch (err: any) {
-    console.error('创建备份失败:', err);
     ElMessage.error(err.response?.data?.detail || '创建备份失败');
   }
 };
@@ -541,7 +536,6 @@ const handleSaveRecover = async () => {
     startServerStatusCheck();
     
   } catch (err: any) {
-    console.error('恢复备份失败:', err);
     ElMessage.error(err.response?.data?.detail || '恢复备份失败');
   } finally {
     recoverDialog.value.loading = false;
@@ -637,7 +631,6 @@ const handleDelete = async (backup: BackupFileInfo) => {
     if (err === 'cancel') {
       return;
     }
-    console.error('删除备份失败:', err);
     ElMessage.error(err.response?.data?.detail || '删除备份失败');
   }
 };

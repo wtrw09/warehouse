@@ -75,12 +75,11 @@ async def get_sub_majors(
         if params.search and params.search.strip():
             keywords = params.search.strip().split()
             
-            # 每个关键词在二级专业名称、代码、一级专业名称和描述字段中查找，使用AND逻辑
+            # 每个关键词在二级专业名称、代码和描述字段中查找，使用AND逻辑
             for keyword in keywords:
                 query = query.where(
                     (getattr(SubMajor, 'sub_major_name').ilike(f"%{keyword}%")) |
                     (getattr(SubMajor, 'sub_major_code').ilike(f"%{keyword}%")) |
-                    (getattr(SubMajor, 'major_name').ilike(f"%{keyword}%")) |
                     (getattr(SubMajor, 'description').ilike(f"%{keyword}%"))
                 )
         
@@ -90,8 +89,29 @@ async def get_sub_majors(
         # 执行查询
         sub_majors = db.exec(query).all()
         
-        # 将数据库模型转换为响应模型
-        sub_major_responses = [SubMajorResponse.model_validate(sub_major) for sub_major in sub_majors]
+        # 获取所有major_id并查询对应的major_name
+        major_ids = [sm.major_id for sm in sub_majors if sm.major_id]
+        major_name_map = {}
+        if major_ids:
+            majors = db.exec(select(Major).where(Major.id.in_(major_ids))).all()
+            major_name_map = {major.id: major.major_name for major in majors}
+        
+        # 构建响应数据
+        sub_major_responses = []
+        for sub_major in sub_majors:
+            sub_major_dict = {
+                "id": sub_major.id,
+                "sub_major_name": sub_major.sub_major_name,
+                "sub_major_code": sub_major.sub_major_code,
+                "description": sub_major.description,
+                "major_id": sub_major.major_id,
+                "major_name": major_name_map.get(sub_major.major_id) if sub_major.major_id else None,
+                "reserved": sub_major.reserved,
+                "creator": sub_major.creator,
+                "create_time": sub_major.create_time,
+                "update_time": sub_major.update_time
+            }
+            sub_major_responses.append(SubMajorResponse(**sub_major_dict))
         
         return SubMajorListResponse(
             data=sub_major_responses,
@@ -117,7 +137,27 @@ async def get_sub_major(
         if not sub_major:
             raise HTTPException(status_code=404, detail="二级专业不存在")
         
-        return sub_major
+        # 获取major_name
+        major_name = None
+        if sub_major.major_id:
+            major = db.exec(select(Major).where(Major.id == sub_major.major_id)).first()
+            major_name = major.major_name if major else None
+        
+        # 构建响应数据
+        sub_major_dict = {
+            "id": sub_major.id,
+            "sub_major_name": sub_major.sub_major_name,
+            "sub_major_code": sub_major.sub_major_code,
+            "description": sub_major.description,
+            "major_id": sub_major.major_id,
+            "major_name": major_name,
+            "reserved": sub_major.reserved,
+            "creator": sub_major.creator,
+            "create_time": sub_major.create_time,
+            "update_time": sub_major.update_time
+        }
+        
+        return SubMajorResponse(**sub_major_dict)
     except HTTPException:
         raise
     except Exception as e:
@@ -180,8 +220,7 @@ async def create_sub_major(
         if existing_sub_major:
             raise HTTPException(status_code=400, detail="二级专业名称已存在")
         
-        # 如果指定了一级专业ID，验证一级专业是否存在并获取专业名称
-        major_name = None
+        # 如果指定了一级专业ID，验证一级专业是否存在
         if sub_major_data.major_id:
             major = db.exec(
                 select(Major).where(Major.id == sub_major_data.major_id, Major.is_delete != True)
@@ -189,8 +228,6 @@ async def create_sub_major(
             
             if not major:
                 raise HTTPException(status_code=400, detail="指定的一级专业不存在")
-            
-            major_name = major.major_name
         
         # 处理二级专业代码：如果用户提供了则验证格式，否则自动生成
         if sub_major_data.sub_major_code and sub_major_data.sub_major_code.strip() != '':
@@ -206,7 +243,6 @@ async def create_sub_major(
             sub_major_code=validated_code,
             description=sub_major_data.description,
             major_id=sub_major_data.major_id,
-            major_name=major_name,  # 通过major_id自动获取
             reserved=None,  # 保留字段，不要求输入
             creator=current_user.username,
             create_time=datetime.now(),
@@ -217,7 +253,27 @@ async def create_sub_major(
         db.commit()
         db.refresh(sub_major)
         
-        return sub_major
+        # 获取major_name用于响应
+        major_name = None
+        if sub_major.major_id:
+            major = db.exec(select(Major).where(Major.id == sub_major.major_id)).first()
+            major_name = major.major_name if major else None
+        
+        # 构建响应数据
+        sub_major_dict = {
+            "id": sub_major.id,
+            "sub_major_name": sub_major.sub_major_name,
+            "sub_major_code": sub_major.sub_major_code,
+            "description": sub_major.description,
+            "major_id": sub_major.major_id,
+            "major_name": major_name,
+            "reserved": sub_major.reserved,
+            "creator": sub_major.creator,
+            "create_time": sub_major.create_time,
+            "update_time": sub_major.update_time
+        }
+        
+        return SubMajorResponse(**sub_major_dict)
     except HTTPException:
         raise
     except Exception as e:
@@ -291,7 +347,6 @@ async def update_sub_major(
                     raise HTTPException(status_code=400, detail="指定的一级专业不存在")
                 
                 sub_major.major_id = sub_major_data.major_id
-                sub_major.major_name = major.major_name  # 通过major_id自动获取专业名称
         
         sub_major.update_time = datetime.now()
         
@@ -299,7 +354,27 @@ async def update_sub_major(
         db.commit()
         db.refresh(sub_major)
         
-        return sub_major
+        # 获取major_name用于响应
+        major_name = None
+        if sub_major.major_id:
+            major = db.exec(select(Major).where(Major.id == sub_major.major_id)).first()
+            major_name = major.major_name if major else None
+        
+        # 构建响应数据
+        sub_major_dict = {
+            "id": sub_major.id,
+            "sub_major_name": sub_major.sub_major_name,
+            "sub_major_code": sub_major.sub_major_code,
+            "description": sub_major.description,
+            "major_id": sub_major.major_id,
+            "major_name": major_name,
+            "reserved": sub_major.reserved,
+            "creator": sub_major.creator,
+            "create_time": sub_major.create_time,
+            "update_time": sub_major.update_time
+        }
+        
+        return SubMajorResponse(**sub_major_dict)
     except HTTPException:
         raise
     except Exception as e:

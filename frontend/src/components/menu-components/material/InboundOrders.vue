@@ -239,6 +239,7 @@ import {
   DocumentCopy
 } from '@element-plus/icons-vue';
 import { inboundOrderAPI } from '@/services/material/inbound';
+import { getServerBaseURL } from '@/services/base';
 import type { 
   InboundOrderResponse, 
   InboundOrderQueryParams
@@ -303,8 +304,7 @@ const getSuppliers = async () => {
       value: supplier.supplier_name
     }));
   } catch (error: any) {
-    // 全局拦截器已经处理了401等错误，这里只记录错误不重复显示
-    console.error('获取供应商列表失败:', error);
+    // 获取供应商列表失败
   }
 };
 
@@ -593,7 +593,7 @@ const handleExportInboundOrderExcel = async (row: InboundOrderResponse) => {
   }
 };
 
-// 打印器材分类账页
+// 打印器材分类账页（SSE流式推送进度，消除超时）
 const handlePrintMaterialLedger = async () => {
   if (selectedOrders.value.length === 0) {
     ElMessage.warning('请先选择要打印的入库单');
@@ -603,22 +603,20 @@ const handlePrintMaterialLedger = async () => {
   // 创建Notification实例
   let notification: any = null;
   
-  const createNotification = (percentage: number, status: 'success' | 'exception' | undefined = undefined, currentIndex: number = 0, currentOrderNumber: string = '') => {
+  const createNotification = (percentage: number, status: 'success' | 'exception' | undefined = undefined, messageText: string = '') => {
     if (notification) {
       notification.close();
     }
     
-    let messageText = '';
-    if (percentage < 100) {
-      if (currentIndex > 0) {
-        messageText = `正在生成第 ${currentIndex}/${selectedOrders.value.length} 个账页: ${currentOrderNumber}`;
-      } else {
+    // 如果没有传入messageText，使用默认文本
+    if (!messageText) {
+      if (percentage < 100) {
         messageText = `正在批量生成 ${selectedOrders.value.length} 个器材分类账页...`;
+      } else {
+        messageText = status === 'success'
+          ? `成功生成 ${selectedOrders.value.length} 个器材分类账页`
+          : `批量生成器材分类账页失败`;
       }
-    } else {
-      messageText = status === 'success' 
-        ? `成功生成 ${selectedOrders.value.length} 个器材分类账页`
-        : `批量生成器材分类账页失败`;
     }
     
     notification = ElNotification({
@@ -632,63 +630,145 @@ const handlePrintMaterialLedger = async () => {
           showText: false
         })
       ]),
-      duration: 0, // 不会自动关闭
-      showClose: false, // 隐藏关闭按钮
-      position: 'top-right', // 改为右上角显示
+      duration: 0,
+      showClose: false,
+      position: 'top-right',
       customClass: 'print-notification'
     });
   };
 
+  // 用于收集失败信息
+  let failCount = 0;
+  const batchStartTime = Date.now();
+  let lastProgressTime = batchStartTime;
+  let axiosTimeoutError = false;
+  let exportedCount = 0;
+
   try {
     // 初始通知
     createNotification(0);
-    
-    // 批量打印选中的入库单
-    for (let i = 0; i < selectedOrders.value.length; i++) {
-      const order = selectedOrders.value[i];
-      
-      // 更新进度条显示当前处理进度
-      const progress = Math.round((i / selectedOrders.value.length) * 100);
-      createNotification(progress, undefined, i + 1, order.order_number);
 
-      const blob = await inboundOrderAPI.printMaterialLedger(order.order_number);
-      
-      // 创建下载链接
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `器材分类账页${order.order_number}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      // 添加延迟，避免同时下载多个文件导致浏览器阻塞
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
-    // 更新进度到100%并显示成功状态
-    createNotification(100, 'success');
-    
-    // 延迟关闭通知并显示成功消息
-    setTimeout(() => {
-      if (notification) {
-        notification.close();
+    // 使用SSE流式批量请求（单连接，无超时风险）
+    await inboundOrderAPI.batchPrintMaterialLedgerStream(
+      selectedOrders.value.map(o => o.order_number),
+
+      // onProgress: 实时推送进度
+      (data) => {
+        const now = Date.now();
+        const elapsed = ((now - batchStartTime) / 1000).toFixed(1);
+        
+        if (data.type === 'generating') {
+          lastProgressTime = now;
+          const progress = Math.round((data.current / data.total) * 100);
+          // 每3个账页或跨越10s时打印一次
+          if (data.current % 3 === 1 || parseFloat(elapsed) > 10) {
+            console.log(`[SSE调试] 生成 ${data.current}/${data.total} | 耗时 ${elapsed}s | ${data.order_number}`);
+          }
+          if (parseFloat(elapsed) > 10 && !axiosTimeoutError) {
+            axiosTimeoutError = true;
+            console.log(`[SSE调试] ⚠️ 已超过10s! Axios原本应报超时，但SSE+fetch未中断`);
+          }
+          createNotification(
+            progress,
+            undefined,
+            `第 ${data.current}/${data.total} (${elapsed}s): ${data.order_number}`
+          );
+        } else if (data.type === 'completed') {
+          const fileTime = data.file_elapsed !== undefined ? `(${data.file_elapsed}s)` : '';
+          console.log(`[SSE调试] ✓ 完成 ${data.current}/${data.total} | 耗时 ${elapsed}s ${fileTime} | ${data.order_number}`);
+          
+          // 每个账页生成完毕立即下载
+          const baseURL = getServerBaseURL();
+          const token = localStorage.getItem('token');
+          const fullUrl = `${baseURL}${data.download_url}`;
+
+          exportedCount++;
+          const downloadStart = Date.now();
+          fetch(fullUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.blob();
+          }).then(blob => {
+            const downloadTime = ((Date.now() - downloadStart) / 1000).toFixed(1);
+            if (parseFloat(downloadTime) > 2) {
+              console.log(`[SSE调试]   下载耗时 ${downloadTime}s (较慢)`);
+            }
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `器材分类账页${data.order_number}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+          }).catch(err => {
+            console.error(`[SSE调试] ✗ 下载失败 ${data.order_number}: ${err.message}`);
+            failCount++;
+            ElMessage.error(`账页 ${data.order_number} 下载失败: ${err.message}`);
+          });
+
+          // 更新进度
+          const progress = Math.round((data.current / data.total) * 100);
+          createNotification(
+            progress,
+            undefined,
+            `已完成 ${data.current}/${data.total} (${elapsed}s)`
+          );
+        } else if (data.type === 'failed') {
+          console.log(`[SSE调试] ✗ 失败 ${data.current}/${data.total} | 耗时 ${elapsed}s | ${data.order_number}: ${data.error}`);
+          failCount++;
+        }
+      },
+
+      // onComplete: 全部完成
+      (result) => {
+        const totalTime = result.total_elapsed !== undefined ? result.total_elapsed : ((Date.now() - batchStartTime) / 1000).toFixed(1);
+        console.log(`[SSE调试] ===== 批量导出完成 =====`);
+        console.log(`[SSE调试]   导出 ${result.total} 个账页`);
+        console.log(`[SSE调试]   成功 ${result.success} 个`);
+        console.log(`[SSE调试]   失败 ${result.failed} 个`);
+        console.log(`[SSE调试]   总耗时 ${totalTime}s`);
+        console.log(`[SSE调试]   超过10s之前的Axios超时检测: ${axiosTimeoutError ? '⚠️ 已超过10s但未中断' : '❌ 未触发(总时长<10s)'}`);
+        console.log(`[SSE调试]   实际下载账页数: ${exportedCount}`);
+        
+        if (result.failed > 0) {
+          createNotification(
+            100,
+            'exception',
+            `生成完成：成功 ${result.success} 个，失败 ${result.failed} 个`
+          );
+          setTimeout(() => {
+            if (notification) notification.close();
+            ElMessage.warning(`批量生成完成：成功 ${result.success} 个，失败 ${result.failed} 个`);
+          }, 3000);
+        } else {
+          createNotification(100, 'success', `成功生成 ${result.total} 个器材分类账页`);
+          setTimeout(() => {
+            if (notification) notification.close();
+            ElMessage.success(`成功打印 ${result.total} 个器材分类账页`);
+          }, 2000);
+        }
+      },
+
+      // onError: 连接错误
+      (error) => {
+        const elapsed = ((Date.now() - batchStartTime) / 1000).toFixed(1);
+        console.log(`[SSE调试] ✗✗✗ 连接失败! 耗时 ${elapsed}s`);
+        console.log(`[SSE调试]   错误信息: ${error.message}`);
+        console.log(`[SSE调试]   超过10s: ${parseFloat(elapsed) > 10 ? '是 (若<10s则是其他原因)' : '否 (说明在10s内就出错了)'}`);
+        createNotification(100, 'exception', `批量生成器材分类账页失败`);
+        setTimeout(() => {
+          if (notification) notification.close();
+          ElMessage.error(`打印器材分类账页失败: ${error.message}`);
+        }, 1000);
       }
-      ElMessage.success(`成功打印 ${selectedOrders.value.length} 个器材分类账页`);
-    }, 500);
+    );
   } catch (error: any) {
-    // 更新进度为错误状态
     createNotification(100, 'exception');
-    
-    const errorMessage = error.response?.data?.message || error.message || '打印器材分类账页失败';
-    
-    // 延迟关闭通知并显示错误消息
     setTimeout(() => {
-      if (notification) {
-        notification.close();
-      }
-      ElMessage.error(`打印器材分类账页失败: ${errorMessage}`);
+      if (notification) notification.close();
+      ElMessage.error(`打印器材分类账页失败: ${error.message || '未知错误'}`);
     }, 1000);
   }
 };
@@ -712,7 +792,7 @@ const handleDelete = async (row: InboundOrderResponse) => {
     getInboundOrders();
   } catch (error: any) {
     // 显示具体的错误原因
-    if (error.message === 'cancel') {
+    if (error === 'cancel' || error.message === 'cancel') {
       return; // 用户取消操作，不显示错误
     }
     

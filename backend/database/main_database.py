@@ -1,5 +1,5 @@
 from sqlmodel import SQLModel, create_engine, Session
-from sqlalchemy import event
+from sqlalchemy import event, text
 import os
 from typing import Generator
 
@@ -156,3 +156,43 @@ def get_session() -> Session:
     """获取数据库会话（非依赖注入方式）"""
     engine = get_engine()
     return Session(engine)
+
+def checkpoint_wal():
+    """执行 WAL checkpoint，将 WAL 文件内容合并回主数据库"""
+    try:
+        engine = get_engine()
+        with engine.connect() as conn:
+            # 执行 TRUNCATE checkpoint，彻底清空 WAL 文件
+            conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE);"))
+            conn.commit()
+            print("[INFO] WAL checkpoint 执行成功")
+            return True
+    except Exception as e:
+        print(f"[ERROR] WAL checkpoint 执行失败: {e}")
+        return False
+
+def close_database():
+    """关闭数据库引擎，确保所有连接释放和 WAL 文件合并"""
+    global _engine
+    if _engine is None:
+        print("[INFO] 数据库引擎未初始化，无需关闭")
+        return
+    
+    try:
+        print("[INFO] 开始关闭数据库引擎...")
+        
+        # 1. 先执行 WAL checkpoint
+        checkpoint_wal()
+        
+        # 2. 释放所有数据库连接
+        _engine.dispose()
+        print("[INFO] 数据库引擎已释放所有连接")
+        
+        # 3. 重置引擎实例
+        _engine = None
+        print("[INFO] 数据库引擎已关闭")
+        
+    except Exception as e:
+        print(f"[ERROR] 关闭数据库引擎时出错: {e}")
+        import traceback
+        traceback.print_exc()

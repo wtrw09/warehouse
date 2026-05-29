@@ -233,7 +233,7 @@ ROUTE_PERMISSIONS: Dict[str, List[Permission]] = {
     "/inbound-orders/generate-order-number": [Permission.IO_EDIT],
     "/inbound-orders/generate-batch-code": [Permission.IO_EDIT],
     "/inbound-orders/suppliers": [Permission.IO_READ],
-    "/inbound-orders/pdf": [Permission.IO_EDIT],
+    "/inbound-orders/download": [Permission.IO_EDIT],
     "/inbound-orders/excel": [Permission.IO_EDIT],
     
     # 出库单管理
@@ -251,8 +251,9 @@ ROUTE_PERMISSIONS: Dict[str, List[Permission]] = {
     "/outbound-orders/items/delete": [Permission.IO_EDIT],
     "/outbound-orders/generate-order-number": [Permission.IO_EDIT],
     "/outbound-orders/customers": [Permission.IO_READ],
-    "/outbound-orders/pdf": [Permission.IO_EDIT],
+    "/outbound-orders/download": [Permission.IO_EDIT],
     "/outbound-orders/excel": [Permission.IO_EDIT],
+    "/outbound-orders/update-redundant-fields": [Permission.IO_EDIT],
     
     # 库存器材明细查询
     "/inventory-details": [Permission.STOCK_READ],
@@ -262,7 +263,7 @@ ROUTE_PERMISSIONS: Dict[str, List[Permission]] = {
     "/inventory-details/export-excel": [Permission.STOCK_READ],
 
     # 器材分类账页
-    "/material-ledger/pdf": [Permission.IO_EDIT],
+    "/material-ledger/download": [Permission.IO_EDIT],
     
     # 数据库恢复管理
     "/api/backup/create": [Permission.SYSTEM_EDIT],
@@ -297,7 +298,6 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme)
 )-> Dict:
     """从JWT令牌中获取当前用户，支持两种认证策略"""
-    print(f"[DEBUG] get_current_user() - 开始用户认证")
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -307,9 +307,7 @@ async def get_current_user(
     
     try:
         # 解码JWT令牌
-        print(f"获取信息1 - SECRET_KEY: {SECRET_KEY}, ALGORITHM: {ALGORITHM}")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"获取信息2 - 解码成功: {payload}")
         username: str | None = payload.get("username")
         user_scopes: List[str] = payload.get("scopes", [])  # JWT中存储的权限
         auth_strategy: str = payload.get("auth_strategy", "jwt_fixed")
@@ -325,12 +323,10 @@ async def get_current_user(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail=f"缺少权限: {scope}",
                     )
-        print(f"当前模式：{auth_strategy}")
         # 根据认证策略进行额外验证
         if auth_strategy == "sliding_session":
             # 滑动会话模式：检查会话状态
             is_valid = await session_manager.is_session_valid(username)
-            print(f"[DEBUG] get_current_user() - 滑动会话验证结果: {is_valid}")
             if not is_valid:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,

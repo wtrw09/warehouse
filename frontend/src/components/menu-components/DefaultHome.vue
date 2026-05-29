@@ -284,7 +284,6 @@ const xorDecrypt = (encryptedBase64: string, seed: string): string => {
     const decoder = new TextDecoder('utf-8');
     return decoder.decode(decrypted);
   } catch (error) {
-    console.error('解密失败:', error);
     return '';
   }
 };

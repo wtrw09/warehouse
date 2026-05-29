@@ -10,7 +10,8 @@ from schemas.material.inventory_detail import (
     InventoryDetailsListResponse,
     MajorOptionsResponse,
     EquipmentOption,
-    EquipmentOptionsResponse
+    EquipmentOptionsResponse,
+    InventoryDetailLocateResult
 )
 from models.material.inventory_detail import InventoryDetail
 from models.material.inventory_batch import InventoryBatch
@@ -155,13 +156,8 @@ async def get_inventory_details(
         count_query = select(func.count()).select_from(query.subquery())
         total = db.exec(count_query).one()
         
-        # 应用排序
-        sort_field = sort_by
-        
-        if sort_order.lower() == "desc":
-            query = query.order_by(getattr(Material, sort_field).desc(), InventoryBatch.batch_number.asc())
-        else:
-            query = query.order_by(getattr(Material, sort_field).asc(), InventoryBatch.batch_number.asc())
+        # 应用排序：按入库顺序（detail_id升序），新入库的在后面
+        query = query.order_by(InventoryDetail.detail_id.asc())
         
         # 应用分页
         offset = (page - 1) * page_size
@@ -325,11 +321,8 @@ async def get_all_inventory_details(
             elif quantity_filter == "no_stock":
                 query = query.where(InventoryDetail.quantity == 0)
         
-        # 应用排序
-        if sort_order.lower() == "desc":
-            query = query.order_by(getattr(Material, sort_by).desc(), InventoryBatch.batch_number.asc())
-        else:
-            query = query.order_by(getattr(Material, sort_by).asc(), InventoryBatch.batch_number.asc())
+        # 应用排序：按入库顺序（detail_id升序），新入库的在后面
+        query = query.order_by(InventoryDetail.detail_id.asc())
         
         # 执行查询
         results = db.exec(query).all()
@@ -713,11 +706,8 @@ async def export_inventory_details_to_excel(
             elif quantity_filter == "no_stock":
                 query = query.where(InventoryDetail.quantity == 0)
         
-        # 应用排序
-        if sort_order.lower() == "desc":
-            query = query.order_by(getattr(Material, sort_by).desc(), InventoryBatch.batch_number.asc())
-        else:
-            query = query.order_by(getattr(Material, sort_by).asc(), InventoryBatch.batch_number.asc())
+        # 应用排序：按入库顺序（detail_id升序），新入库的在后面
+        query = query.order_by(InventoryDetail.detail_id.asc())
         
         # 执行查询
         results = db.exec(query).all()
@@ -827,3 +817,110 @@ async def export_inventory_details_to_excel(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"导出Excel文件失败: {str(e)}")
+
+
+@router.get("/locate", response_model=InventoryDetailLocateResult, summary="库存明细快速定位")
+async def locate_inventory_detail_by_batch(
+    batch_number: Optional[str] = Query(None, description="批次编号(可选,为空则返回第1页)"),
+    page_size: int = Query(10, ge=1, le=100, description="每页大小,用于计算页码"),
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/inventory-details/locate"))
+):
+    """
+    库存明细快速定位接口(仅支持批次编号精确匹配)
+    
+    功能说明:
+    1. 根据批次编号精确查找匹配的库存明细
+    2. 计算该明细在detail_id升序列表中的位置
+    3. 返回目标页码和位置信息
+    
+    匹配规则:
+    - 仅支持精确匹配批次编号
+    - 按detail_id升序排列(入库时间顺序)
+    - 只返回有库存的记录
+    """
+    try:
+        # 如果批次编号为None或空,返回重头开始显示的结果(第1页第1个位置)
+        if not batch_number or not batch_number.strip():
+            return InventoryDetailLocateResult(
+                found=False,
+                detail_id=None,
+                material_name=None,
+                position=1,
+                target_page=1,
+                page_size=page_size
+            )
+        
+        # 去除前后空格
+        batch_number = batch_number.strip()
+        
+        # 第1步: 根据批次编号查找批次信息
+        batch = db.exec(
+            select(InventoryBatch).where(
+                InventoryBatch.batch_number == batch_number,
+                InventoryBatch.is_delete != True
+            )
+        ).first()
+        
+        # 如果批次不存在,返回空结果
+        if not batch:
+            return InventoryDetailLocateResult(
+                found=False,
+                detail_id=None,
+                material_name=None,
+                position=None,
+                target_page=None,
+                page_size=page_size
+            )
+        
+        # 第2步: 通过batch_id查找库存明细(只查询有库存的)
+        # 直接通过batch_id查询
+        target_detail = db.exec(
+            select(InventoryDetail).where(
+                InventoryDetail.batch_id == batch.batch_id,
+                InventoryDetail.quantity > 0
+            ).order_by(InventoryDetail.detail_id.asc())
+        ).first()
+        
+        # 如果没有找到有库存的明细,返回空结果
+        if not target_detail:
+            return InventoryDetailLocateResult(
+                found=False,
+                detail_id=None,
+                material_name=None,
+                position=None,
+                target_page=None,
+                page_size=page_size
+            )
+        
+        # 第3步: 计算目标明细的位置(固定按detail_id升序)
+        # 统计detail_id小于目标明细的数量(只统计有库存的)
+        total_before = db.exec(
+            select(func.count(InventoryDetail.detail_id)).where(
+                InventoryDetail.detail_id < target_detail.detail_id,
+                InventoryDetail.quantity > 0
+            )
+        ).one()
+        
+        # 位置从1开始计数
+        position = total_before + 1
+        
+        # 计算目标页码
+        target_page = (position + page_size - 1) // page_size
+        
+        # 获取器材名称(用于显示)
+        material = db.get(Material, batch.material_id)
+        
+        return InventoryDetailLocateResult(
+            found=True,
+            detail_id=target_detail.detail_id,
+            material_name=material.material_name if material else None,
+            position=position,
+            target_page=target_page,
+            page_size=page_size
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"库存明细定位失败: {str(e)}")

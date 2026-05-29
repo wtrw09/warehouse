@@ -126,6 +126,14 @@ export interface CustomerListResponse {
   total: number;
 }
 
+export interface UpdateRedundantFieldsResponse {
+  success: boolean;
+  updated_count: number;
+  total_items: number;
+  not_found_batches: number[];
+  message: string;
+}
+
 export type OutboundOrderListResponseType = OutboundOrderListResponse;
 export type OutboundOrderPaginationResponseType = OutboundOrderPaginationResult;
 export type OutboundOrderDetailResponseType = OutboundOrderDetailResponse;
@@ -139,3 +147,4 @@ export type OutboundOrderDeleteResponseType = { message: string };
 export type BatchDeleteResponseType = BatchDeleteResponse;
 export type OrderNumberGenerateResponseType = OrderNumberGenerateResponse;
 export type CustomerListResponseType = CustomerListResponse;
+export type UpdateRedundantFieldsResponseType = UpdateRedundantFieldsResponse;

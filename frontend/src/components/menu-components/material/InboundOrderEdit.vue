@@ -456,7 +456,7 @@
               <el-row :gutter="10">
                 <el-col :span="12">
                   <el-form-item label="单位" required>
-                    <div class="unit-input-container">
+                    <div ref="unitInputContainerRef" class="unit-input-container">
                       <el-input 
                         v-model="selectedMaterialInfo.unit" 
                         placeholder="请输入单位或选择常用单位"
@@ -465,7 +465,7 @@
                         @input="handleUnitSearch"
                         style="width: 100%"
                       />
-                      <div v-if="showUnitDropdown" class="unit-dropdown">
+                      <div v-if="showUnitDropdown" class="unit-dropdown" :style="unitDropdownStyle">
                         <div class="unit-options">
                           <div 
                             v-for="unit in unitOptions" 
@@ -892,6 +892,8 @@ const selectedMaterialInfo = reactive({
 const allUnitOptions = ref<string[]>([...COMMON_UNITS]); // 完整的单位列表（保持最近使用的顺序）
 const showUnitDropdown = ref(false);
 const unitSearchText = ref('');
+const unitInputContainerRef = ref<HTMLElement | null>(null);
+const unitDropdownStyle = ref({ top: '0px', left: '0px', width: 'auto' });
 
 // 计算属性：根据搜索文本过滤单位选项
 const unitOptions = computed(() => {
@@ -1039,8 +1041,7 @@ const getSuppliers = async (searchKeyword?: string, append: boolean = false) => 
       supplierOptions.value = newOptions;
     }
   } catch (error: any) {
-    // 全局拦截器已经处理了401等错误，这里只记录错误不重复显示
-    console.error('获取供应商列表失败:', error);
+    // 获取供应商列表失败
   }
 };
 
@@ -1104,7 +1105,6 @@ const loadMoreSuppliers = async () => {
       scrollContainer.scrollTop = scrollTopBefore + heightDiff;
     }
   } catch (error) {
-    console.error('加载更多供应商失败:', error);
     // 加载失败，回退页码
     supplierPagination.currentPage--;
   } finally {
@@ -1143,10 +1143,8 @@ const removeItem = async (index: number) => {
   }
   
   const item = orderItems.value[index];
-  console.log("判断当前模式是否为编辑模式",isEdit.value,orderId.value,item.item_id);
   if (isEdit.value && orderId.value && item.item_id) {
     // 编辑模式：调用后端API删除明细项
-    console.log("删除明细项",orderId.value, item.item_id);
     try {
       deleting.value = true;
       await inboundOrderAPI.deleteInboundOrderItem(orderId.value, item.item_id);
@@ -1295,6 +1293,15 @@ const handleUnitSelect = (unit: string) => {
 const handleUnitInputFocus = () => {
   showUnitDropdown.value = true;
   unitSearchText.value = ''; // 清空搜索文本，显示完整列表
+  // 使用 fixed 定位，将下拉框定位到输入框正下方，突破容器 overflow 限制
+  if (unitInputContainerRef.value) {
+    const rect = unitInputContainerRef.value.getBoundingClientRect();
+    unitDropdownStyle.value = {
+      top: `${rect.bottom}px`,
+      left: `${rect.left}px`,
+      width: `${rect.width}px`
+    };
+  }
 };
 
 const handleUnitInputBlur = () => {
@@ -1354,10 +1361,8 @@ const getEquipments = async () => {
   try {
     // 专业ID为空时，让后端API自动处理
     const majorIds = materialFilter.major_id ? [materialFilter.major_id] : [];
-    console.log('专业号:', majorIds);
     const result = await materialAPI.getEquipmentOptionsByMajors(majorIds);
     equipmentOptions.value = result.data;
-    console.log('装备列表:', equipmentOptions.value);
   } catch (error: any) {
     // 显示具体的错误原因
     const errorMessage = error.response?.data?.message || error.message || '获取装备列表失败';
@@ -1390,7 +1395,6 @@ const getMaterialList = async (page = 1, mode: 'replace' | 'append' | 'prepend' 
     
     // 如果在请求期间有新的 replace 请求发起，则丢弃当前过期请求的结果
     if (currentId !== materialRequestId.value && mode === 'replace') {
-      console.log('丢弃过期的器材列表请求:', currentId);
       return;
     }
 
@@ -1656,7 +1660,6 @@ const handleBinDoubleClick = async (row: any) => {
     // 显示成功消息
     ElMessage.success(`已选择货位: ${binResponse.bin_name} (仓库: ${binResponse.warehouse_name})`);
   } catch (error) {
-    console.error('获取货位详情失败:', error);
     ElMessage.error('获取货位信息失败，请重试');
   }
 };
@@ -1666,7 +1669,7 @@ const getWarehouses = async () => {
   try {
     warehouseOptions.value = await warehouseAPI.getAllWarehouses();
   } catch (error) {
-    console.error('获取仓库列表失败:', error);
+    // 获取仓库列表失败
   }
 };
 
@@ -1680,7 +1683,7 @@ const getBins = async () => {
     const response = await binApi.getBins(params);
     binList.value = response.data || [];
   } catch (error) {
-    console.error('获取货位列表失败:', error);
+    // 获取货位列表失败
   }
 };
 
@@ -1750,7 +1753,7 @@ const generateBatchCode = async (material: MaterialResponse) => {
         
         // 如果检测到错误的批次编码，显示警告信息
         if (hasInvalidBatchCodes) {
-          console.warn('检测到错误的批次编码格式，已自动修复为正确格式');
+          // 检测到错误的批次编码，已自动修复
         }
         
         return correctBatchCode;
@@ -1764,8 +1767,7 @@ const generateBatchCode = async (material: MaterialResponse) => {
         return batchResponse.batch_code;
       }
     } catch (error) {
-      console.error('生成批次编码失败:', error);
-      // 如果API调用失败，使用前端备用方案，优先使用入库日期
+      // 生成批次编码失败，使用备用方案
       let dateStr: string;
       if (orderForm.inbound_date) {
         dateStr = orderForm.inbound_date.replace(/-/g, '');
@@ -2483,7 +2485,6 @@ const updateOrderNumberDate = async (newDate: string) => {
         }, 100);
       } catch (error: any) {
         // 如果API调用失败，显示错误但不影响日期更新
-        console.error('重新生成入库单号失败:', error);
         const errorMessage = error.response?.data?.message || error.message || '重新生成入库单号失败';
         ElMessage.warning(`入库单号更新失败: ${errorMessage}，请手动修改`);
         
@@ -2533,7 +2534,6 @@ const handleSave = async () => {
       ElMessage.success('入库单信息已通过实时更新保存');
     } else {
       // 新增入库单
-      console.log('入库单创建数据:', orderData);
       await inboundOrderAPI.createInboundOrder(orderData);
       ElMessage.success('入库单创建成功');
       // 保存成功后清除草稿
@@ -2618,7 +2618,7 @@ const initData = async () => {
               const materialDetail = await materialAPI.getMaterial(item.material_id);
               major_name = materialDetail.major_name || '';
             } catch (error) {
-              console.error('获取器材专业信息失败:', error);
+              // 获取器材专业信息失败
             }
           }
           
@@ -2739,7 +2739,6 @@ const getWarehouseNameByBinId = async (binId: number): Promise<string> => {
     const binResponse = await binApi.getBin(binId);
     return binResponse.warehouse_name || '';
   } catch (error) {
-    console.error('获取仓库名称失败:', error);
     return '';
   }
 };
@@ -2806,7 +2805,6 @@ const initTableScroll = () => {
       if (scrollWrapper) {
         scrollWrapper.removeEventListener('scroll', handleTableScroll);
         scrollWrapper.addEventListener('scroll', handleTableScroll);
-        console.log('器材列表滚动监听器绑定成功');
       } else {
         setTimeout(() => tryInit(count + 1), 200);
       }
@@ -3011,23 +3009,18 @@ const handleTableScroll = (event: any) => {
 
 /* 单位选择组件样式 */
 .unit-input-container {
-  position: relative;
   width: 100%;
 }
 
 .unit-dropdown {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
+  position: fixed;
   background: #fff;
   border: 1px solid #e4e7ed;
   border-radius: 4px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  z-index: 2000;
+  z-index: 9999;
   max-height: 150px;
   overflow-y: auto;
-  margin-bottom: 2px;
 }
 
 .unit-options {
