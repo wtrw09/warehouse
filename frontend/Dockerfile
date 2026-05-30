@@ -1,6 +1,7 @@
 # 使用多架构兼容的Node.js基础镜像
 # 使用构建参数指定架构后缀
 ARG NODE_ARCH_SUFFIX=
+ARG NGINX_ARCH_SUFFIX=
 FROM node:22-alpine${NODE_ARCH_SUFFIX} AS builder
 
 # 设置工作目录

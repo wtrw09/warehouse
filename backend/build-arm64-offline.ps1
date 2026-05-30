@@ -68,8 +68,8 @@ switch ($choice) {
         Write-Host "开始构建 ARM64 后端镜像（这可能需要较长时间）..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 使用传统 docker build，指定平台和架构后缀
-        docker build --platform linux/arm64 --build-arg PYTHON_ARCH_SUFFIX=-arm64 -t "$IMAGE_NAME`:$TAG-arm64" .
+        # 使用 BuildKit 构建（--network=host 允许构建期间下载系统包）
+        docker build --network=host --platform linux/arm64 --build-arg PYTHON_ARCH_SUFFIX=-arm64 -t "$IMAGE_NAME`:$TAG-arm64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -122,8 +122,8 @@ switch ($choice) {
         Write-Host "尝试使用本地构建器..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 尝试使用 buildx 但不导出到 tar（先加载到本地）
-        docker buildx build --platform linux/arm64 --build-arg PYTHON_ARCH_SUFFIX=-arm64 --load -t "$IMAGE_NAME`:$TAG-arm64" . 2>&1
+        # 使用 buildx 构建并加载到本地
+        docker buildx build --network=host --platform linux/arm64 --build-arg PYTHON_ARCH_SUFFIX=-arm64 --load -t "$IMAGE_NAME`:$TAG-arm64" . 2>&1
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""

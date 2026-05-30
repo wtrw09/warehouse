@@ -10,13 +10,15 @@ WORKDIR /app
 # 设置时区
 ENV TZ=Asia/Shanghai
 
-# 使用国内镜像源加速系统包安装
-RUN echo 'deb http://mirrors.aliyun.com/debian/ bookworm main' > /etc/apt/sources.list && \
-    echo 'deb http://mirrors.aliyun.com/debian/ bookworm-updates main' >> /etc/apt/sources.list && \
-    echo 'deb http://mirrors.aliyun.com/debian-security bookworm-security main' >> /etc/apt/sources.list
+# 使用国内镜像源加速系统包安装（基础镜像是 Debian trixie）
+RUN echo 'deb http://mirrors.aliyun.com/debian/ trixie main' > /etc/apt/sources.list && \
+    echo 'deb http://mirrors.aliyun.com/debian/ trixie-updates main' >> /etc/apt/sources.list && \
+    echo 'deb http://mirrors.aliyun.com/debian-security trixie-security main' >> /etc/apt/sources.list && \
+    rm -rf /etc/apt/sources.list.d/ 2>/dev/null
 
-# 安装系统依赖和交叉编译工具
-RUN apt-get update && apt-get install -y \
+# 安装系统依赖和交叉编译工具（拆分 update/install 便于缓存）
+RUN apt-get update && rm -rf /var/lib/apt/lists/partial
+RUN apt-get install -y --no-install-recommends \
     curl \
     gcc \
     g++ \
@@ -66,13 +68,15 @@ WORKDIR /app
 # 设置时区
 ENV TZ=Asia/Shanghai
 
-# 使用国内镜像源加速系统包安装
-RUN echo 'deb http://mirrors.aliyun.com/debian/ bookworm main' > /etc/apt/sources.list && \
-    echo 'deb http://mirrors.aliyun.com/debian/ bookworm-updates main' >> /etc/apt/sources.list && \
-    echo 'deb http://mirrors.aliyun.com/debian-security bookworm-security main' >> /etc/apt/sources.list
+# 使用国内镜像源加速系统包安装（基础镜像是 Debian trixie）
+RUN echo 'deb http://mirrors.aliyun.com/debian/ trixie main' > /etc/apt/sources.list && \
+    echo 'deb http://mirrors.aliyun.com/debian/ trixie-updates main' >> /etc/apt/sources.list && \
+    echo 'deb http://mirrors.aliyun.com/debian-security trixie-security main' >> /etc/apt/sources.list && \
+    rm -rf /etc/apt/sources.list.d/ 2>/dev/null
 
-# 安装运行时系统依赖
-RUN apt-get update && apt-get install -y \
+# 安装运行时系统依赖（拆分 update/install 便于缓存）
+RUN apt-get update && rm -rf /var/lib/apt/lists/partial
+RUN apt-get install -y --no-install-recommends \
     fonts-wqy-zenhei \
     fonts-wqy-microhei \
     curl \

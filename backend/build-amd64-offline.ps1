@@ -55,8 +55,8 @@ switch ($choice) {
         Write-Host "开始构建 AMD64 后端镜像..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 使用传统 docker build，指定架构后缀
-        docker build --build-arg PYTHON_ARCH_SUFFIX=-amd64 -t "$IMAGE_NAME`:$TAG-amd64" .
+        # 使用 docker build，--network=host 允许构建期间下载系统包
+        docker build --network=host --build-arg PYTHON_ARCH_SUFFIX=-amd64 -t "$IMAGE_NAME`:$TAG-amd64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -105,8 +105,8 @@ switch ($choice) {
         Write-Host "开始构建 AMD64 后端镜像..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 使用 buildx 明确指定平台和架构后缀
-        docker buildx build --platform linux/amd64 --build-arg PYTHON_ARCH_SUFFIX=-amd64 --load -t "$IMAGE_NAME`:$TAG-amd64" .
+        # 使用 buildx 明确指定平台，--network=host 允许网络访问
+        docker buildx build --network=host --platform linux/amd64 --build-arg PYTHON_ARCH_SUFFIX=-amd64 --load -t "$IMAGE_NAME`:$TAG-amd64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
