@@ -22,10 +22,11 @@
           <el-button 
             type="success" 
             @click="handlePrintMaterialLedger" 
-            :disabled="selectedOrders.length === 0"
-            :icon="Printer"
+            :disabled="selectedOrders.length === 0 || isPrintingLedger"
+            :loading="isPrintingLedger"
+            :icon="isPrintingLedger ? undefined : Printer"
           >
-            打印分类账页
+            {{ isPrintingLedger ? '生成中...' : '打印分类账页' }}
           </el-button>
         </div>
         <div class="base-operation-bar__right">
@@ -593,6 +594,9 @@ const handleExportInboundOrderExcel = async (row: InboundOrderResponse) => {
   }
 };
 
+// 打印器材分类账页 loading 状态
+const isPrintingLedger = ref(false);
+
 // 打印器材分类账页（SSE流式推送进度，消除超时）
 const handlePrintMaterialLedger = async () => {
   if (selectedOrders.value.length === 0) {
@@ -644,9 +648,12 @@ const handlePrintMaterialLedger = async () => {
   let axiosTimeoutError = false;
   let exportedCount = 0;
 
+  // 设置loading状态
+  isPrintingLedger.value = true;
+
   try {
-    // 初始通知
-    createNotification(0);
+    // 初始通知 - 明确告知用户正在准备
+    createNotification(0, undefined, '正在连接服务器，请稍候...');
 
     // 使用SSE流式批量请求（单连接，无超时风险）
     await inboundOrderAPI.batchPrintMaterialLedgerStream(
@@ -671,42 +678,26 @@ const handlePrintMaterialLedger = async () => {
           createNotification(
             progress,
             undefined,
-            `第 ${data.current}/${data.total} (${elapsed}s): ${data.order_number}`
+            `正在生成 (${data.current}/${data.total})：${data.order_number}...`
           );
         } else if (data.type === 'completed') {
           const fileTime = data.file_elapsed !== undefined ? `(${data.file_elapsed}s)` : '';
           console.log(`[SSE调试] ✓ 完成 ${data.current}/${data.total} | 耗时 ${elapsed}s ${fileTime} | ${data.order_number}`);
           
-          // 每个账页生成完毕立即下载
+          // 直接使用无 auth 的下载 URL 触发下载，兼容 IDM
+          // temp-download 和 download 路由均已移除 Authorization 校验
           const baseURL = getServerBaseURL();
-          const token = localStorage.getItem('token');
-          const fullUrl = `${baseURL}${data.download_url}`;
-
+          const downloadUrl = `${baseURL}${data.download_url}`;
           exportedCount++;
-          const downloadStart = Date.now();
-          fetch(fullUrl, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }).then(res => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.blob();
-          }).then(blob => {
-            const downloadTime = ((Date.now() - downloadStart) / 1000).toFixed(1);
-            if (parseFloat(downloadTime) > 2) {
-              console.log(`[SSE调试]   下载耗时 ${downloadTime}s (较慢)`);
-            }
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `器材分类账页${data.order_number}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-          }).catch(err => {
-            console.error(`[SSE调试] ✗ 下载失败 ${data.order_number}: ${err.message}`);
-            failCount++;
-            ElMessage.error(`账页 ${data.order_number} 下载失败: ${err.message}`);
-          });
+          
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          // 不设 download 属性：同源场景下避免浏览器自身也触发下载导致 0KB 文件
+          // 文件名由后端 Content-Disposition 头控制
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
 
           // 更新进度
           const progress = Math.round((data.current / data.total) * 100);
@@ -770,6 +761,8 @@ const handlePrintMaterialLedger = async () => {
       if (notification) notification.close();
       ElMessage.error(`打印器材分类账页失败: ${error.message || '未知错误'}`);
     }, 1000);
+  } finally {
+    isPrintingLedger.value = false;
   }
 };
 

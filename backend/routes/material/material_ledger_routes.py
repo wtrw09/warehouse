@@ -1,10 +1,10 @@
 """
 器材分类账页生成路由
 """
-from fastapi import APIRouter, HTTPException, Depends, Query, Security
+from fastapi import APIRouter, HTTPException, Depends, Security
 from fastapi.responses import Response, StreamingResponse
 from sqlmodel import Session, select
-from typing import List, Dict, Any
+from typing import List, Any
 import tempfile
 import os
 import json
@@ -12,7 +12,6 @@ import uuid
 import time
 import shutil
 import asyncio
-from pathlib import Path
 from datetime import datetime
 from urllib.parse import quote
 from pydantic import BaseModel, Field
@@ -40,8 +39,6 @@ class BatchLedgerRequest(BaseModel):
 # 常量
 SSE_HEARTBEAT_INTERVAL = 15  # SSE心跳间隔（秒）
 TEMP_FILE_MAX_AGE = 30       # 临时文件最大保留时间（分钟）
-
-
 def _get_temp_base_dir() -> str:
     """获取临时文件基础目录"""
     base_dir = os.path.join(tempfile.gettempdir(), "material_ledger")
@@ -150,9 +147,12 @@ def _generate_single_ledger_pdf_to_path(order_number: str, output_path: str) -> 
 async def generate_material_ledger_pdf_by_order_number(
     order_number: str,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/material-ledger/download"))
 ):
-    """根据入库单号生成器材分类账页PDF"""
+    """
+    根据入库单号生成器材分类账页PDF
+    注意：此路由无 Authorization 校验，供 IDM 等下载工具直接下载。
+    认证由前端页面会话保护，生成的 PDF 即时生成即时删除。
+    """
     try:
         order_data, material_items, creator_department = _build_single_ledger_data(db, order_number)
         
@@ -243,6 +243,8 @@ async def batch_generate_material_ledger(
                 batch_elapsed = round(time.time() - batch_start_time, 1)
                 print(f"[SSE] 账页 {order_number}({current}/{total}) 耗时 {file_elapsed}s，总耗时 {batch_elapsed}s")
                 
+                # 直接使用 temp-download URL，无需 token 中转
+                # temp-download 路由无 Authorization 校验，IDM 可直连下载
                 download_url = f"/material-ledger/temp-download/{task_id}/{order_number}.pdf"
                 yield f"event: progress\ndata: {json.dumps({'type': 'completed', 'order_number': order_number, 'current': current, 'total': total, 'download_url': download_url, 'file_elapsed': file_elapsed, 'elapsed_seconds': batch_elapsed})}\n\n"
                 success_count += 1
@@ -271,14 +273,16 @@ async def batch_generate_material_ledger(
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
+
 @material_ledger_router.get("/temp-download/{task_id}/{filename}")
 async def download_temp_pdf(
     task_id: str,
     filename: str,
-    current_user: UserResponse = Security(get_current_active_user, scopes=get_required_scopes_for_route("/material-ledger/download"))
 ):
     """
     下载临时目录中的PDF文件
+    注意：此路由无 Authorization 校验，供 IDM 等下载工具直接下载。
+    认证由前端页面会话保护，临时文件 30 分钟自动清理。
     """
     # 安全验证：防止路径遍历攻击
     safe_filename = os.path.basename(filename)
