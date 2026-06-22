@@ -1,0 +1,58 @@
+# CNB 云原生构建流水线配置
+# 推送至 main 分支时，并行构建前后端多架构镜像并推送到 CNB Docker 制品库
+# 镜像地址：
+#   docker.cnb.cool/wtrw09/warehouse/warehouse-frontend:latest
+#   docker.cnb.cool/wtrw09/warehouse/warehouse-backend:latest
+#   docker.cnb.cool/wtrw09/warehouse/redis:7.2-alpine
+
+main:
+  push:
+    # 流水线1：构建前端镜像（amd64 + arm64 多架构 manifest）
+    - name: build-frontend
+      services:
+        - name: docker
+          options:
+            rootlessBuildkitd:
+              enabled: true
+      stages:
+        - name: docker login
+          script: docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
+        - name: build and push frontend
+          script: |
+            docker buildx build \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/warehouse-frontend:latest \
+              --platform linux/amd64,linux/arm64 \
+              --push \
+              -f frontend/Dockerfile \
+              frontend/
+
+    # 流水线2：构建后端镜像（amd64 + arm64 多架构 manifest）
+    - name: build-backend
+      services:
+        - name: docker
+          options:
+            rootlessBuildkitd:
+              enabled: true
+      stages:
+        - name: docker login
+          script: docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
+        - name: build and push backend
+          script: |
+            docker buildx build \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/warehouse-backend:latest \
+              --platform linux/amd64,linux/arm64 \
+              --push \
+              -f backend/Dockerfile \
+              backend/
+
+    # 流水线3：转发 Redis 官方多架构镜像到 CNB 制品库（方便国内用户拉取）
+    - name: push-redis
+      services:
+        - docker
+      stages:
+        - name: retag and push redis
+          script: |
+            docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
+            docker buildx imagetools create \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:7.2-alpine \
+              redis:7.2-alpine

@@ -1,8 +1,6 @@
 # Dockerfile for FastAPI Application (Production)
 # 支持多架构：amd64, arm64
-# 使用构建参数指定基础镜像架构后缀
-ARG PYTHON_ARCH_SUFFIX=
-FROM python:3.13-slim${PYTHON_ARCH_SUFFIX} as builder
+FROM python:3.13-slim as builder
 
 # 设置工作目录
 WORKDIR /app
@@ -59,8 +57,7 @@ RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
 # 最终运行时镜像
-ARG PYTHON_ARCH_SUFFIX=
-FROM python:3.13-slim${PYTHON_ARCH_SUFFIX}
+FROM python:3.13-slim
 
 # 设置工作目录
 WORKDIR /app

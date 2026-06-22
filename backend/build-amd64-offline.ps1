@@ -1,5 +1,5 @@
-﻿# AMD64 离线构建脚本 - 使用本地已有镜像
-# 适用于网络受限但已有基础镜像的环境
+﻿# AMD64 离线构建脚本
+# 在本地 x86_64 机器上构建 AMD64 架构后端镜像
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -13,15 +13,14 @@ $OUTPUT_FILE = "$IMAGE_NAME-amd64-$TAG.tar"
 # 检查本地是否有必要的基础镜像
 Write-Host "检查本地镜像..." -ForegroundColor Cyan
 
-$hasPython = docker images python:3.13-slim-amd64 --format "{{.Repository}}" 2>$null
+$hasPython = docker images python:3.13-slim --format "{{.Repository}}" 2>$null
 
 if ([string]::IsNullOrWhiteSpace($hasPython)) {
-    Write-Host "✗ 缺少 python:3.13-slim-amd64 镜像" -ForegroundColor Red
-    Write-Host "请先拉取: docker pull --platform linux/amd64 python:3.13-slim" -ForegroundColor Yellow
-    Write-Host "然后打标签: docker tag python:3.13-slim python:3.13-slim-amd64" -ForegroundColor Yellow
+    Write-Host "✗ 缺少 python:3.13-slim 镜像" -ForegroundColor Red
+    Write-Host "请先拉取: docker pull python:3.13-slim" -ForegroundColor Yellow
     exit 1
 } else {
-    Write-Host "✓ python:3.13-slim-amd64 镜像已存在" -ForegroundColor Green
+    Write-Host "✓ python:3.13-slim 镜像已存在" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -56,7 +55,7 @@ switch ($choice) {
         Write-Host ""
         
         # 使用 docker build，--network=host 允许构建期间下载系统包
-        docker build --network=host --build-arg PYTHON_ARCH_SUFFIX=-amd64 -t "$IMAGE_NAME`:$TAG-amd64" .
+        docker build --network=host -t "$IMAGE_NAME`:$TAG-amd64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -106,7 +105,7 @@ switch ($choice) {
         Write-Host ""
         
         # 使用 buildx 明确指定平台，--network=host 允许网络访问
-        docker buildx build --network=host --platform linux/amd64 --build-arg PYTHON_ARCH_SUFFIX=-amd64 --load -t "$IMAGE_NAME`:$TAG-amd64" .
+        docker buildx build --network=host --platform linux/amd64 --load -t "$IMAGE_NAME`:$TAG-amd64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""

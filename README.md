@@ -165,31 +165,24 @@ WarehouseManagement/
 - Node.js 18+
 - Docker & Docker Compose (推荐)
 
-### 6.2 快速启动 (Docker方式)
-下载我编译好的镜像
+#### 6.2 快速启动 (Docker方式)
 1. **克隆项目**
 ```bash
+git clone https://cnb.cool/wtrw09/warehouse.git
+#或
 git clone https://gitee.com/wtrw09/warehouse.git
 #或
 git clone https://github.com/wtrw09/warehouse.git
 cd WarehouseManagement
 ```
-2. **从Registry中拉取镜像**
-```bash
-$ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/warehouse-frontend:latest-amd64
-$ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/warehouse-backend:latest-amd64
-$ docker pull crpi-4rpw1lejokg3alu8.cn-shanghai.personal.cr.aliyuncs.com/wtrw09/redis:7.2-alpine-amd64
-```
-**加载镜像**
-```bash
-# 在镜像文件所在目录下运行
-sudo docker load -i warehouse-backend-arm 64-latest.tar
-sudo docker load -i warehouse-frontend-arm 64-latest.tar
-sudo docker load -i redis-7.2-alpine-arm 64.tar
-# 验证,可以看到载入的镜像
-sudo docker images
-```
+2. **拉取镜像**
 
+镜像托管在 CNB Docker 制品库，支持 amd64 和 arm64 多架构，docker pull 会自动匹配当前 CPU 架构：
+```bash
+docker pull docker.cnb.cool/wtrw09/warehouse/warehouse-frontend:latest
+docker pull docker.cnb.cool/wtrw09/warehouse/warehouse-backend:latest
+docker pull docker.cnb.cool/wtrw09/warehouse/redis:7.2-alpine
+```
 3. **启动容器**
 复制docker-compose.yml和start-containers.ps1和start-containers.sh文件到项目根目录你要运行的目录下,Windows系统运行start-containers.ps1,Linux/Mac系统运行start-containers.sh。
 注意：Linux中需要给start-containers.sh添加可执行权限。
@@ -203,7 +196,18 @@ $ sudo ./start-containers.sh
 4. **访问系统**
 `http://localhost:8081/login`或者`http://[你的电脑IP地址]:8081/login`
 
-### 6.3手动部署
+### 6.3 离线部署（备选方案）
+
+如果目标机器无法访问网络，可以使用离线构建脚本在本地构建镜像后传输部署：
+
+1. 使用 `frontend/build-amd64-offline.ps1` 或 `frontend/build-arm64-offline.ps1` 脚本构建前端镜像
+2. 使用 `backend/build-amd64-offline.ps1` 或 `backend/build-arm64-offline.ps1` 脚本构建后端镜像
+3. 将生成的 `.tar` 文件传输到目标服务器
+4. 在目标服务器上使用 `docker load -i xxx.tar` 加载镜像
+
+> 注：离线部署时需要修改 docker-compose.yml 中的镜像地址为本地镜像名称，并添加 `pull_policy: never`。
+
+### 6.4 手动部署
 1. **克隆项目**
 ```bash
 git clone https://gitee.com/wtrw09/warehouse.git
@@ -436,37 +440,33 @@ sudo chmod +x /usr/local/bin/docker-compose
 sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 ```
 ## 11.7 安装部署程序
-### 11.7.1编译镜像文件
-1. 使用frontend\build-amd64-offline.ps1 或 frontend\build-arm64-offline.ps1脚本编译前端镜像文件，根据 CPU 构架选择不同脚本，会在生成 frontend\warehouse-frontend-amd64-latest.tar 或 frontend\warehouse-frontend-arm64-latest.tar
-2. 使用 backend\build-amd64-offline.ps1 或 backend\build-arm64-offline.ps1脚本编译后端镜像文件，根据 CPU 构架选择不同脚本，会在生成 backend\warehouse-backend-amd64-latest.tar 或 backend\warehouse-backend-arm64-latest.tar
-3. 自行下载 redis 镜像，命名为 redis:7.2-alpine-amd64 或者 redis:7.2-alpine-arm64，打包为redis-7.2-alpine-amd 64.tar
-4. 根据 cpu 构架，复制到一个文件夹中，把根目录下 docker-compose.yml、start-containers.sh 一起复制进去
-### 11.7.2 把文件传输到虚拟机中
+### 11.7.1 拉取镜像
+镜像托管在 CNB Docker 制品库，支持 amd64 和 arm64 多架构，docker pull 会自动匹配当前 CPU 架构：
 ```bash
-scp -P 2222 -r * cj@localhost:/home/cj/warehouse
+docker pull docker.cnb.cool/wtrw09/warehouse/warehouse-frontend:latest
+docker pull docker.cnb.cool/wtrw09/warehouse/warehouse-backend:latest
+docker pull docker.cnb.cool/wtrw09/warehouse/redis:7.2-alpine
+```
+如果虚拟机无法访问网络，可以使用离线构建脚本在本地构建镜像后传输部署，参见 6.3 离线部署。
+### 11.7.2 复制配置文件到虚拟机
+将根目录下的 `docker-compose.yml` 和 `start-containers.sh` 文件复制到虚拟机的运行目录：
+```bash
+scp -P 2222 docker-compose.yml start-containers.sh cj@localhost:/home/cj/warehouse
 ```
 ### 11.7.3 部署
 
 ```
 #在home目录下新建运行目录
 sudo mkdir warehouse
-sudo chmod 777 -r warehouse
-#启动docker服务
-#关闭容器（如果打开的话）
-docker-compose down
-#删除重复镜像（可选）
-docker rmi 镜像名称
-# 载入镜像 docker load -i 镜像文件.tar，示例如下：
-docker load -i warehouse-frontend-amd64-latest.tar 
-docker load -i warehouse-backend-amd64-latest.tar  
-docker load -i redis-7.2-alpine-amd 64.tar 
-#将文件复制到运行目录】，根据实际使用
-cp start-containers.sh  /home/username/warehouse 
-cp docker-compose.yml /home/username/warehouse
+cd warehouse
+#拉取镜像（如果虚拟机可访问网络）
+docker pull docker.cnb.cool/wtrw09/warehouse/warehouse-frontend:latest
+docker pull docker.cnb.cool/wtrw09/warehouse/warehouse-backend:latest
+docker pull docker.cnb.cool/wtrw09/warehouse/redis:7.2-alpine
 #设置运行权限
-chmod +x start-containers.sh 
+chmod +x start-containers.sh
 #运行脚本
-./start-containers.sh 
+./start-containers.sh
 ```
 ### 11.7.4 使用
 ###  VirtualBox 端口转发设置

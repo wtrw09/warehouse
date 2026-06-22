@@ -1,9 +1,9 @@
-﻿# Windows PowerShell 容器启动脚本 (AMD64)
-# 用于启动仓库管理系统的所有容器
+﻿# Windows PowerShell 容器启动脚本
+# 从 CNB Docker 制品库拉取镜像并启动容器
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-Write-Host "=== 仓库管理系统容器启动脚本 (AMD64) ===" -ForegroundColor Green
+Write-Host "=== 仓库管理系统容器启动脚本 ===" -ForegroundColor Green
 Write-Host ""
 
 # 检查 Docker 是否运行
@@ -16,40 +16,43 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host " Docker 服务正常运行" -ForegroundColor Green
 Write-Host ""
 
-# 检查必要的镜像是否存在
-Write-Host "检查必要的镜像..." -ForegroundColor Cyan
+# CNB Docker 制品库镜像地址
+$FRONTEND_IMAGE = "docker.cnb.cool/wtrw09/warehouse/warehouse-frontend:latest"
+$BACKEND_IMAGE = "docker.cnb.cool/wtrw09/warehouse/warehouse-backend:latest"
+$REDIS_IMAGE = "docker.cnb.cool/wtrw09/warehouse/redis:7.2-alpine"
 
-$requiredImages = @(
-    @{Name="warehouse-frontend:latest-amd64"; Description="前端镜像"},
-    @{Name="warehouse-backend:latest-amd64"; Description="后端镜像"},
-    @{Name="redis:7.2-alpine-amd64"; Description="Redis缓存"}
-)
+# 从 CNB 拉取最新镜像
+Write-Host "从 CNB Docker 制品库拉取最新镜像..." -ForegroundColor Cyan
+Write-Host ""
 
-$missingImages = @()
-foreach ($img in $requiredImages) {
-    $format = '{{.Repository}}:{{.Tag}}'
-    $exists = docker images $img.Name --format $format 2>$null
-    if ([string]::IsNullOrWhiteSpace($exists)) {
-        Write-Host " 缺少 $($img.Name) - $($img.Description)" -ForegroundColor Red
-        $missingImages += $img.Name
-    } else {
-        Write-Host " $($img.Name) 已存在" -ForegroundColor Green
-    }
-}
-
-if ($missingImages.Count -gt 0) {
-    Write-Host ""
-    Write-Host "缺少以下镜像，请先构建或加载:" -ForegroundColor Yellow
-    foreach ($img in $missingImages) {
-        Write-Host "  - $img" -ForegroundColor Yellow
-    }
-    Write-Host ""
-    Write-Host "提示: 使用构建脚本或 docker load 加载镜像文件" -ForegroundColor Cyan
+Write-Host "拉取前端镜像: $FRONTEND_IMAGE" -ForegroundColor Yellow
+docker pull $FRONTEND_IMAGE
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "✗ 前端镜像拉取失败" -ForegroundColor Red
     exit 1
 }
-
+Write-Host "✓ 前端镜像就绪" -ForegroundColor Green
 Write-Host ""
-Write-Host "所有必要的镜像都已就绪！" -ForegroundColor Green
+
+Write-Host "拉取后端镜像: $BACKEND_IMAGE" -ForegroundColor Yellow
+docker pull $BACKEND_IMAGE
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "✗ 后端镜像拉取失败" -ForegroundColor Red
+    exit 1
+}
+Write-Host "✓ 后端镜像就绪" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "拉取 Redis 镜像: $REDIS_IMAGE" -ForegroundColor Yellow
+docker pull $REDIS_IMAGE
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "✗ Redis 镜像拉取失败" -ForegroundColor Red
+    exit 1
+}
+Write-Host "✓ Redis 镜像就绪" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "所有镜像已就绪！" -ForegroundColor Green
 Write-Host ""
 
 # 创建必要的目录
@@ -80,7 +83,7 @@ foreach ($dir in $frontendDirs) {
     }
 }
 
-# 检查nginx配置文件是否存在，不存在或无效时从源码复制
+# 检查nginx配置文件是否存在，不存在或无效时从源码复制默认配置
 $nginxConfPath = "config/nginx.conf"
 $nginxConfSource = "frontend/config/nginx.conf"
 
@@ -95,6 +98,8 @@ if ((-not (Test-Path $nginxConfPath)) -or ((Get-Item $nginxConfPath).Length -eq 
 } else {
     Write-Host "✓ nginx配置文件已存在: $nginxConfPath" -ForegroundColor Green
 }
+
+Write-Host ""
 
 Write-Host ""
 Write-Host "设置目录权限..." -ForegroundColor Cyan
@@ -126,14 +131,10 @@ Write-Host ""
 Write-Host "清理旧容器..." -ForegroundColor Yellow
 docker-compose down 2>$null | Out-Null
 
-# 为 AMD64 平台设置镜像标签
-$env:ARCH_SUFFIX = "-amd64"
-
-# 启动容器
 Write-Host "启动服务容器..." -ForegroundColor Yellow
 Write-Host ""
 
-# 直接使用 docker-compose，环境变量会自动替换
+# 直接使用 docker-compose
 docker-compose up -d
 
 if ($LASTEXITCODE -eq 0) {

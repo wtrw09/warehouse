@@ -1,6 +1,6 @@
 #!/bin/bash
 # Linux Bash 容器启动脚本
-# 自动检测 CPU 架构（ARM64/AMD64）并启动相应的容器
+# 从 CNB Docker 制品库拉取多架构镜像并启动容器
 
 set -e
 
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}=== 仓库管理系统容器启动脚本 ===${NC}"
 echo ""
 
-# 检测 CPU 架构
+# 检测 CPU 架构（仅用于显示信息）
 echo -e "${CYAN}检测 CPU 架构...${NC}"
 ARCH=$(uname -m)
 
@@ -46,7 +46,6 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # 检查 Docker 是否运行
-# 尝试使用 sudo 权限检查（如果需要）
 if ! docker info &> /dev/null; then
     if ! sudo docker info &> /dev/null; then
         echo -e "${RED}✗ Docker 服务未运行${NC}"
@@ -55,7 +54,6 @@ if ! docker info &> /dev/null; then
     else
         echo -e "${YELLOW}⚠ 检测到需要 sudo 权限运行 Docker${NC}"
         echo -e "${CYAN}提示: 建议将用户添加到 docker 组: sudo usermod -aG docker \$USER${NC}"
-        # 设置使用 sudo 的标志
         USE_SUDO=true
     fi
 else
@@ -83,41 +81,46 @@ fi
 
 echo ""
 
-# 检查必要的镜像是否存在
-echo -e "${CYAN}检查必要的镜像 ($PLATFORM)...${NC}"
+# CNB Docker 制品库镜像地址（多架构 manifest，自动匹配当前 CPU 架构）
+FRONTEND_IMAGE="docker.cnb.cool/wtrw09/warehouse/warehouse-frontend:latest"
+BACKEND_IMAGE="docker.cnb.cool/wtrw09/warehouse/warehouse-backend:latest"
+REDIS_IMAGE="docker.cnb.cool/wtrw09/warehouse/redis:7.2-alpine"
 
-declare -A REQUIRED_IMAGES=(
-    ["warehouse-frontend:latest-$PLATFORM"]="前端镜像"
-    ["warehouse-backend:latest-$PLATFORM"]="后端镜像"
-    ["redis:7.2-alpine-$PLATFORM"]="Redis缓存"
-)
-
-MISSING_IMAGES=()
 DOCKER_CMD="docker"
 [ "$USE_SUDO" = true ] && DOCKER_CMD="sudo docker"
 
-for IMAGE in "${!REQUIRED_IMAGES[@]}"; do
-    if $DOCKER_CMD images "$IMAGE" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -q "$IMAGE"; then
-        echo -e "${GREEN}✓ $IMAGE 已存在${NC}"
-    else
-        echo -e "${RED}✗ 缺少 $IMAGE - ${REQUIRED_IMAGES[$IMAGE]}${NC}"
-        MISSING_IMAGES+=("$IMAGE")
-    fi
-done
+# 从 CNB 拉取最新镜像
+echo -e "${CYAN}从 CNB Docker 制品库拉取最新镜像 ($PLATFORM)...${NC}"
+echo ""
 
-if [ ${#MISSING_IMAGES[@]} -gt 0 ]; then
-    echo ""
-    echo -e "${YELLOW}缺少以下镜像，请先构建或加载:${NC}"
-    for IMAGE in "${MISSING_IMAGES[@]}"; do
-        echo -e "${YELLOW}  - $IMAGE${NC}"
-    done
-    echo ""
-    echo -e "${CYAN}提示: 使用构建脚本或 docker load 加载镜像文件${NC}"
+echo -e "${YELLOW}拉取前端镜像: $FRONTEND_IMAGE${NC}"
+if $DOCKER_CMD pull "$FRONTEND_IMAGE"; then
+    echo -e "${GREEN}✓ 前端镜像就绪${NC}"
+else
+    echo -e "${RED}✗ 前端镜像拉取失败${NC}"
     exit 1
 fi
-
 echo ""
-echo -e "${GREEN}所有必要的镜像都已就绪！${NC}"
+
+echo -e "${YELLOW}拉取后端镜像: $BACKEND_IMAGE${NC}"
+if $DOCKER_CMD pull "$BACKEND_IMAGE"; then
+    echo -e "${GREEN}✓ 后端镜像就绪${NC}"
+else
+    echo -e "${RED}✗ 后端镜像拉取失败${NC}"
+    exit 1
+fi
+echo ""
+
+echo -e "${YELLOW}拉取 Redis 镜像: $REDIS_IMAGE${NC}"
+if $DOCKER_CMD pull "$REDIS_IMAGE"; then
+    echo -e "${GREEN}✓ Redis 镜像就绪${NC}"
+else
+    echo -e "${RED}✗ Redis 镜像拉取失败${NC}"
+    exit 1
+fi
+echo ""
+
+echo -e "${GREEN}所有镜像已就绪！${NC}"
 echo ""
 
 # 创建必要的目录
@@ -203,7 +206,7 @@ if [ "$USE_SUDO" = true ]; then
         sudo chmod -R 755 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR"
         echo -e "${GREEN}✓ 权限设置完成${NC}"
     fi
-    
+
     # 如果有数据库文件，确保权限正确
     if [ -f "$DATA_DIR/data/system_config.db" ]; then
         echo -e "${CYAN}修复数据库文件权限...${NC}"
@@ -216,7 +219,7 @@ else
     if chown -R 1000:1000 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR" 2>/dev/null && \
        chmod -R 755 "$DATA_DIR/data" "$DATA_DIR/logs" "$DATA_DIR/backups" "$CONFIG_DIR" logs "$FRONTEND_LOGS_DIR" 2>/dev/null; then
         echo -e "${GREEN}✓ 权限设置完成${NC}"
-        
+
         # 如果有数据库文件,确保权限正确
         if [ -f "$DATA_DIR/data/system_config.db" ]; then
             chown 1000:1000 "$DATA_DIR/data/system_config.db" 2>/dev/null || true
@@ -259,14 +262,10 @@ echo ""
 echo -e "${YELLOW}清理旧容器...${NC}"
 $COMPOSE_CMD down 2>/dev/null || true
 
-# 设置环境变量
-echo -e "${YELLOW}设置架构环境变量: -$PLATFORM${NC}"
-export ARCH_SUFFIX="-$PLATFORM"
-
 echo -e "${YELLOW}启动服务容器...${NC}"
 echo ""
 
-# 直接使用 docker-compose，环境变量会自动替换
+# 直接使用 docker-compose
 if $COMPOSE_CMD up -d; then
     echo ""
     echo -e "${GREEN}✓ 容器启动成功！${NC}"
@@ -283,11 +282,11 @@ if $COMPOSE_CMD up -d; then
     echo -e "${WHITE}重启服务: $COMPOSE_CMD restart${NC}"
     echo -e "${WHITE}查看状态: $COMPOSE_CMD ps${NC}"
     echo ""
-    
+
     # 显示容器状态
     echo -e "${CYAN}=== 容器状态 ===${NC}"
     $COMPOSE_CMD ps
-    
+
 else
     echo ""
     echo -e "${RED}✗ 容器启动失败${NC}"

@@ -1,8 +1,5 @@
 # 使用多架构兼容的Node.js基础镜像
-# 使用构建参数指定架构后缀
-ARG NODE_ARCH_SUFFIX=
-ARG NGINX_ARCH_SUFFIX=
-FROM node:22-alpine${NODE_ARCH_SUFFIX} AS builder
+FROM node:22-alpine AS builder
 
 # 设置工作目录
 WORKDIR /app
@@ -32,8 +29,7 @@ COPY src/assets/ ./src/assets/
 RUN npm run build
 
 # 使用多架构兼容的nginx基础镜像
-ARG NGINX_ARCH_SUFFIX=
-FROM nginx:alpine${NGINX_ARCH_SUFFIX}
+FROM nginx:alpine
 
 # 设置镜像元数据，支持多架构
 LABEL org.opencontainers.image.title="MWSTest Frontend"
@@ -69,7 +65,7 @@ EXPOSE 80
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:80/ || exit 1
 
 # 设置启动脚本（使用sh明确调用）
 ENTRYPOINT ["/bin/sh", "/docker-entrypoint.sh"]

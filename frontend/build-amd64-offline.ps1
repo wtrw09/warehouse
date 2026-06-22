@@ -1,9 +1,9 @@
-﻿# AMD64 离线构建脚本 - 使用本地已有镜像
-# 适用于网络受限但已有基础镜像的环境
+﻿# AMD64 离线构建脚本
+# 在本地 x86_64 机器上构建 AMD64 架构镜像
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-Write-Host "=== AMD64 离线构建工具 ===" -ForegroundColor Green
+Write-Host "=== AMD64 前端离线构建工具 ===" -ForegroundColor Green
 Write-Host ""
 
 $IMAGE_NAME = "warehouse-frontend"
@@ -13,25 +13,23 @@ $OUTPUT_FILE = "$IMAGE_NAME-amd64-$TAG.tar"
 # 检查本地是否有必要的基础镜像
 Write-Host "检查本地镜像..." -ForegroundColor Cyan
 
-$hasNode = docker images node:22-alpine-amd64 --format "{{.Repository}}" 2>$null
-$hasNginx = docker images nginx:alpine-amd64 --format "{{.Repository}}" 2>$null
+$hasNode = docker images node:22-alpine --format "{{.Repository}}" 2>$null
+$hasNginx = docker images nginx:alpine --format "{{.Repository}}" 2>$null
 
 if ([string]::IsNullOrWhiteSpace($hasNode)) {
-    Write-Host "✗ 缺少 node:22-alpine-amd64 镜像" -ForegroundColor Red
-    Write-Host "请先拉取: docker pull --platform linux/amd64 node:22-alpine" -ForegroundColor Yellow
-    Write-Host "然后打标签: docker tag node:22-alpine node:22-alpine-amd64" -ForegroundColor Yellow
+    Write-Host "✗ 缺少 node:22-alpine 镜像" -ForegroundColor Red
+    Write-Host "请先拉取: docker pull node:22-alpine" -ForegroundColor Yellow
     exit 1
 } else {
-    Write-Host "✓ node:22-alpine-amd64 镜像已存在" -ForegroundColor Green
+    Write-Host "✓ node:22-alpine 镜像已存在" -ForegroundColor Green
 }
 
 if ([string]::IsNullOrWhiteSpace($hasNginx)) {
-    Write-Host "✗ 缺少 nginx:alpine-amd64 镜像" -ForegroundColor Red
-    Write-Host "请先拉取: docker pull --platform linux/amd64 nginx:alpine" -ForegroundColor Yellow
-    Write-Host "然后打标签: docker tag nginx:alpine nginx:alpine-amd64" -ForegroundColor Yellow
+    Write-Host "✗ 缺少 nginx:alpine 镜像" -ForegroundColor Red
+    Write-Host "请先拉取: docker pull nginx:alpine" -ForegroundColor Yellow
     exit 1
 } else {
-    Write-Host "✓ nginx:alpine-amd64 镜像已存在" -ForegroundColor Green
+    Write-Host "✓ nginx:alpine 镜像已存在" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -65,8 +63,8 @@ switch ($choice) {
         Write-Host "开始构建 AMD64 镜像..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 使用 docker build，指定架构后缀，--network=host 允许构建期间下载系统包
-        docker build --network=host --no-cache --build-arg NODE_ARCH_SUFFIX=-amd64 --build-arg NGINX_ARCH_SUFFIX=-amd64 -t "$IMAGE_NAME`:$TAG-amd64" .
+        # 使用 docker build，--network=host 允许构建期间下载系统包
+        docker build --network=host --no-cache -t "$IMAGE_NAME`:$TAG-amd64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -115,8 +113,8 @@ switch ($choice) {
         Write-Host "开始构建 AMD64 镜像..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 使用 buildx 明确指定平台和架构后缀，--network=host 允许网络访问
-        docker buildx build --network=host --no-cache --platform linux/amd64 --build-arg NODE_ARCH_SUFFIX=-amd64 --build-arg NGINX_ARCH_SUFFIX=-amd64 --load -t "$IMAGE_NAME`:$TAG-amd64" .
+        # 使用 buildx 明确指定平台，--network=host 允许网络访问
+        docker buildx build --network=host --no-cache --platform linux/amd64 --load -t "$IMAGE_NAME`:$TAG-amd64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -145,29 +143,6 @@ switch ($choice) {
         $sourcePackage = "$IMAGE_NAME-source.tar.gz"
         
         Write-Host "正在打包源代码..." -ForegroundColor Yellow
-        
-        # 使用 tar 打包（排除不必要的文件）
-        $excludePattern = @(
-            "node_modules",
-            "dist",
-            "*.tar",
-            "*.tar.gz",
-            ".git",
-            ".vscode"
-        )
-        
-        # 创建临时目录列表文件
-        Get-ChildItem -Recurse | Where-Object {
-            $item = $_
-            $exclude = $false
-            foreach ($pattern in $excludePattern) {
-                if ($item.FullName -like "*$pattern*") {
-                    $exclude = $true
-                    break
-                }
-            }
-            -not $exclude
-        } | Select-Object -ExpandProperty FullName | Out-File -FilePath "temp_files.txt" -Encoding UTF8
         
         # 使用 PowerShell 压缩
         $sourceFiles = @(

@@ -4,8 +4,7 @@ name: warehouse-management
 services:
   # 仓库管理系统前端
   frontend:
-    image: warehouse-frontend:latest${ARCH_SUFFIX:-}
-    pull_policy: never  # 强制使用本地镜像，不从远程拉取
+    image: docker.cnb.cool/wtrw09/warehouse/warehouse-frontend:latest
     ports:
       - "8081:80" 
     environment:
@@ -27,8 +26,7 @@ services:
 
   # 仓库管理系统后端
   warehouse-backend:
-    image: warehouse-backend:latest${ARCH_SUFFIX:-}
-    pull_policy: never  # 强制使用本地镜像，不从远程拉取
+    image: docker.cnb.cool/wtrw09/warehouse/warehouse-backend:latest
     #移除端口映射，后端只能在容器内部访问
     #ports:
       #- "8000:8000"
@@ -54,8 +52,7 @@ services:
 
   # Redis服务
   redis:
-    image: redis:7.2-alpine${ARCH_SUFFIX:-}
-    pull_policy: never  # 强制使用本地镜像，不从远程拉取
+    image: docker.cnb.cool/wtrw09/warehouse/redis:7.2-alpine
     ports:
       - "6379:6379"
     volumes:

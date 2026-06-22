@@ -1,0 +1,2 @@
+# Shell 脚本始终使用 LF 行尾，防止在 Windows 上被转换为 CRLF
+*.sh text eol=lf

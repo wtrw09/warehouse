@@ -1,5 +1,5 @@
-﻿# ARM64 离线构建脚本 - 使用本地已有镜像
-# 适用于网络受限但已有基础镜像的环境
+﻿# ARM64 离线构建脚本
+# 在本地构建 ARM64 架构后端镜像（需要 QEMU 支持或 buildx 交叉编译）
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -13,15 +13,14 @@ $OUTPUT_FILE = "$IMAGE_NAME-arm64-$TAG.tar"
 # 检查本地是否有必要的基础镜像
 Write-Host "检查本地镜像..." -ForegroundColor Cyan
 
-$hasPython = docker images python:3.13-slim-arm64 --format "{{.Repository}}" 2>$null
+$hasPython = docker images python:3.13-slim --format "{{.Repository}}" 2>$null
 
 if ([string]::IsNullOrWhiteSpace($hasPython)) {
-    Write-Host "✗ 缺少 python:3.13-slim-arm64 镜像" -ForegroundColor Red
+    Write-Host "✗ 缺少 python:3.13-slim 镜像" -ForegroundColor Red
     Write-Host "请先拉取: docker pull --platform linux/arm64 python:3.13-slim" -ForegroundColor Yellow
-    Write-Host "然后打标签: docker tag python:3.13-slim python:3.13-slim-arm64" -ForegroundColor Yellow
     exit 1
 } else {
-    Write-Host "✓ python:3.13-slim-arm64 镜像已存在" -ForegroundColor Green
+    Write-Host "✓ python:3.13-slim 镜像已存在" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -33,11 +32,11 @@ Write-Host "   - 使用本地镜像缓存"
 Write-Host "   - 构建时间较长（约 10-15 分钟）"
 Write-Host "   - 需要安装 QEMU 支持"
 Write-Host ""
-Write-Host "2. 使用 buildx 导出构建环境 (实验性)" -ForegroundColor Yellow
-Write-Host "   - 尝试强制使用本地缓存"
-Write-Host "   - 可能仍需网络连接"
+Write-Host "2. 使用 buildx 交叉编译 (推荐)" -ForegroundColor Green
+Write-Host "   - 使用 buildx 交叉编译 ARM64 镜像"
+Write-Host "   - 速度快于 QEMU 模拟"
 Write-Host ""
-Write-Host "3. 在目标 ARM64 机器上构建 (推荐)" -ForegroundColor Green
+Write-Host "3. 在目标 ARM64 机器上构建 (最可靠)" -ForegroundColor Yellow
 Write-Host "   - 将源代码打包传输到 ARM64 服务器"
 Write-Host "   - 在目标机器上直接构建"
 Write-Host "   - 速度快且可靠"
@@ -59,7 +58,7 @@ switch ($choice) {
         if ($LASTEXITCODE -ne 0) {
             Write-Host "✗ QEMU 初始化失败" -ForegroundColor Red
             Write-Host "这可能需要网络下载 QEMU 镜像" -ForegroundColor Yellow
-            Write-Host "建议使用方案 3" -ForegroundColor Yellow
+            Write-Host "建议使用方案 2 或方案 3" -ForegroundColor Yellow
             exit 1
         }
         
@@ -69,7 +68,7 @@ switch ($choice) {
         Write-Host ""
         
         # 使用 BuildKit 构建（--network=host 允许构建期间下载系统包）
-        docker build --network=host --platform linux/arm64 --build-arg PYTHON_ARCH_SUFFIX=-arm64 -t "$IMAGE_NAME`:$TAG-arm64" .
+        docker build --network=host --platform linux/arm64 -t "$IMAGE_NAME`:$TAG-arm64" .
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -113,17 +112,14 @@ switch ($choice) {
     
     "2" {
         Write-Host ""
-        Write-Host "=== 使用 Buildx 强制本地缓存 ===" -ForegroundColor Cyan
+        Write-Host "=== 使用 Buildx 交叉编译 ===" -ForegroundColor Cyan
         Write-Host ""
         
-        # 切换回 default 构建器
-        docker buildx use default 2>&1 | Out-Null
-        
-        Write-Host "尝试使用本地构建器..." -ForegroundColor Yellow
+        Write-Host "开始构建 ARM64 后端镜像..." -ForegroundColor Yellow
         Write-Host ""
         
-        # 使用 buildx 构建并加载到本地
-        docker buildx build --network=host --platform linux/arm64 --build-arg PYTHON_ARCH_SUFFIX=-arm64 --load -t "$IMAGE_NAME`:$TAG-arm64" . 2>&1
+        # 使用 buildx 交叉编译 ARM64
+        docker buildx build --network=host --platform linux/arm64 --load -t "$IMAGE_NAME`:$TAG-arm64" . 2>&1
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -139,7 +135,7 @@ switch ($choice) {
         } else {
             Write-Host ""
             Write-Host "✗ 此方案不可用" -ForegroundColor Red
-            Write-Host "默认构建器可能不支持 ARM64 构建" -ForegroundColor Yellow
+            Write-Host "默认构建器可能不支持 ARM64 交叉编译" -ForegroundColor Yellow
             Write-Host "建议使用方案 1 或方案 3" -ForegroundColor Yellow
             exit 1
         }
