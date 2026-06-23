@@ -69,4 +69,4 @@ Thumbs.db
 htmlcov/
 
 # 包管理文件
-package-lock.json
+# package-lock.json 需要纳入版本控制，确保 CI/CD 构建可复现（npm ci 依赖它）
