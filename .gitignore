@@ -60,6 +60,7 @@ Thumbs.db
 .env.production
 
 # 临时文件
+temp/
 *.tmp
 *.temp
 

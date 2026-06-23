@@ -1,3 +1,7 @@
+<p align="right">
+  <a href="README_EN.md"><b>English</b></a> | <b>中文</b>
+</p>
+
 # 仓库管理系统 (Warehouse Management System)
 
 ## 1.项目概述
