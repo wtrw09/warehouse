@@ -46,7 +46,8 @@ main:
               backend/
 
     # 流水线3：转发 Redis 官方多架构镜像到 CNB 制品库（方便国内用户拉取）
-    # 注意：不使用 imagetools create（并发推送触发 429 限流），改为逐平台 pull+push
+    # 使用 buildx 直通构建：FROM redis:7.2-alpine → 推送到 CNB
+    # 不用 imagetools create（并发限流）也不用 docker pull+push（单平台限制）
     - name: push-redis
       services:
         - name: docker
@@ -57,28 +58,12 @@ main:
         - name: retag and push redis
           script: |
             docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
-            TARGET=${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:7.2-alpine
-
-            # 逐平台拉取、标记、推送（避免 imagetools 并发限流）
-            for PLATFORM in linux/amd64 linux/arm64; do
-              TAG=$(echo $PLATFORM | tr '/' '-')
-              echo "--- Processing $PLATFORM ---"
-              docker pull --platform $PLATFORM redis:7.2-alpine
-              docker tag redis:7.2-alpine ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:${TAG}
-              docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:${TAG}
-              sleep 5
-            done
-
-            # 创建多架构 manifest list
-            echo "--- Creating multi-arch manifest ---"
-            docker manifest create $TARGET \
-              ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:linux-amd64 \
-              ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:linux-arm64
-            docker manifest annotate $TARGET \
-              ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:linux-amd64 \
-              --arch amd64 --os linux
-            docker manifest annotate $TARGET \
-              ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:linux-arm64 \
-              --arch arm64 --os linux
-            docker manifest push $TARGET
-            echo "Success: redis multi-arch image pushed to CNB"
+            # 创建临时目录和直通 Dockerfile
+            mkdir -p /tmp/redis-retag
+            echo "FROM redis:7.2-alpine" > /tmp/redis-retag/Dockerfile
+            # 使用 buildx 多平台构建转发镜像
+            docker buildx build \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/redis:7.2-alpine \
+              --platform linux/amd64,linux/arm64 \
+              --push \
+              /tmp/redis-retag/
