@@ -126,16 +126,8 @@ echo ""
 # 创建必要的目录
 echo -e "${CYAN}创建数据目录...${NC}"
 
-# 支持两种目录结构：warehouseBackend 或 backend
-if [ -d "backend" ]; then
-    DATA_DIR="backend"
-    echo -e "${GREEN}✓ 使用 backend 目录结构${NC}"
-else
-    DATA_DIR="warehouseBackend"
-    echo -e "${GREEN}✓ 使用 warehouseBackend 目录结构${NC}"
-fi
-
-# 后端数据目录
+# 后端数据目录（与 docker-compose.yml 保持一致）
+DATA_DIR="warehouseBackend"
 BACKEND_DIRS=("data" "logs" "backups")
 
 mkdir -p "$DATA_DIR"
